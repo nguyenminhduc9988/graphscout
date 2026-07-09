@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codegraph-kit"
+version = "0.1.0"
+description = "Cached, incremental code-graph maps so AI agents query code structure instead of reading whole files. Works with any agent: CLI for Claude Code/Codex/Cursor/Aider, optional MCP server."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Duc Nguyen" }]
+keywords = ["ai-agents", "code-graph", "tree-sitter", "claude-code", "mcp", "token-efficiency", "codebase-map", "static-analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "graphifyy>=0.9",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+dev = ["pytest>=8", "build", "twine"]
+
+[project.scripts]
+codegraph = "codegraph_kit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/nguyenminhduc9988/codegraph"
+Repository = "https://github.com/nguyenminhduc9988/codegraph"
+Issues = "https://github.com/nguyenminhduc9988/codegraph/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codegraph_kit"]
