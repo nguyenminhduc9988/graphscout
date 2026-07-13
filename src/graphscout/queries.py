@@ -3,7 +3,7 @@ show to a human or an agent — the CLI prints it, the MCP server returns it."""
 from collections import Counter
 from pathlib import Path
 
-from . import core
+from . import analysis, core
 
 
 def loc(n):
@@ -79,3 +79,78 @@ def q_deps(root: Path, g, target: Path) -> str:
     lines = [f"{e['relation']:13s} {e['target']}" for e in g["edges"]
              if e.get("source_file", "") == f and e.get("relation") in ("imports", "imports_from")]
     return "\n".join(lines) if lines else f"(no import edges recorded for {f})"
+
+
+def q_search(root: Path, g, query: str, limit: int = 20) -> str:
+    hits = analysis.search(g, query, limit)
+    if not hits:
+        return f"no matches for '{query}'"
+    return "\n".join(fmt_node(n) for n in hits)
+
+
+def q_impact(root: Path, g, query: str, depth: int = 3, limit: int = 40) -> str:
+    seeds = analysis.search(g, query, limit=5)
+    if not seeds:
+        return f"no symbol matching '{query}' — try `search` first"
+    radius = analysis.blast_radius(g, [n["id"] for n in seeds], depth=depth)
+    byid = {n["id"]: n for n in g["nodes"]}
+    lines = [f"impact of '{query}' at depth {depth}: {len(radius['nodes'])} symbols "
+             f"across {len(radius['files'])} files"
+             + (" (truncated)" if radius["truncated"] else "")]
+    for f in sorted(radius["files"]):
+        lines.append(f"  {f}")
+    shown = [byid[nid] for nid in radius["nodes"] if nid in byid][:limit]
+    if shown:
+        lines.append("symbols:")
+        lines += [f"  {fmt_node(n)}" for n in shown]
+    return "\n".join(lines)
+
+
+def q_explore(root: Path, g, query: str, limit: int = 5, depth: int = 2) -> str:
+    """Consolidated query: verbatim source + call edges + blast radius for the
+    top-matching symbols, in one call — the shape an agent usually needs
+    instead of chaining sym -> file -> callers -> Read."""
+    matches = analysis.search(g, query, limit=limit)
+    if not matches:
+        return (f"no symbol matching '{query}' — try `graphscout search {query}` "
+                "with different terms, or grep")
+    spans = analysis.node_spans(g)
+    byid = {n["id"]: n for n in g["nodes"]}
+    call_edges = [e for e in g["edges"] if e.get("relation") == "calls"]
+    out = []
+    for n in matches:
+        out.append(f"## {n.get('label', n['id'])}  [{loc(n)}]")
+        start, nxt = spans.get(n["id"], (None, None))
+        snippet = analysis.read_snippet(root, n["source_file"], start, nxt) if start else None
+        if snippet:
+            body, s, e = snippet
+            out.append(f"```{analysis.lang_for(n['source_file'])}\n{body}\n```  (lines {s}-{e})")
+        callers = [byid[e["source"]] for e in call_edges
+                   if e["target"] == n["id"] and e["source"] in byid]
+        callees = [byid[e["target"]] for e in call_edges
+                   if e["source"] == n["id"] and e["target"] in byid]
+        if callers:
+            out.append("callers: " + "; ".join(fmt_node(c) for c in callers[:8]))
+        if callees:
+            out.append("callees: " + "; ".join(fmt_node(c) for c in callees[:8]))
+        out.append("")
+    radius = analysis.blast_radius(g, [n["id"] for n in matches], depth=depth)
+    out.append(f"blast radius (depth {depth}): {len(radius['nodes'])} symbols across "
+               f"{len(radius['files'])} file(s)" + (" (truncated)" if radius["truncated"] else ""))
+    if radius["files"]:
+        out.append("  " + ", ".join(sorted(radius["files"])[:20]))
+    return "\n".join(out)
+
+
+def q_affected(root: Path, g, changed, depth: int = 8, test_glob: str = None) -> str:
+    changed_rel = []
+    for c in changed:
+        p = Path(c)
+        p = p if p.is_absolute() else (root / p)
+        try:
+            changed_rel.append(str(p.resolve().relative_to(root)))
+        except ValueError:
+            changed_rel.append(c)  # already root-relative or outside root; try as-is
+    globs = (test_glob,) if test_glob else None
+    hits = analysis.affected(g, changed_rel, depth=depth, test_globs=globs)
+    return "\n".join(hits) if hits else "(no affected test files found via resolved imports)"

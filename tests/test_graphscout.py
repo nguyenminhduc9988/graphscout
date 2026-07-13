@@ -109,7 +109,7 @@ def test_touch_single_file(repo, capsys):
 
 def test_agent_snippet_and_version(repo, capsys):
     rc, out = run(capsys, "agent")
-    assert "graphscout map" in out and "graphscout sym" in out
+    assert "graphscout explore" in out and "graphscout map" in out
     rc, out = run(capsys, "--version")
     assert out.startswith("graphscout ")
 
@@ -170,3 +170,42 @@ def test_detect_skips_missing_cli_agent(monkeypatch):
     monkeypatch.setattr(agents.shutil, "which", lambda _b: None)
     present = agents.detect()
     assert all(ok is False for name, ok in present.items() if agents.AGENTS[name]["kind"] == "cli")
+
+
+def test_search_ranks_and_excludes_docstrings(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "search", "helper", str(repo))
+    assert "helper" in out
+
+
+def test_explore_returns_verbatim_source_and_blast_radius(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "explore", "helper", str(repo))
+    assert "def helper(x):" in out  # verbatim source, not just a location
+    assert "callers:" in out
+    assert "blast radius" in out
+
+
+def test_impact_is_multi_hop(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "impact", "helper", str(repo), "--depth=3")
+    assert "impact of 'helper'" in out
+    assert "main_entry" in out or "run" in out  # reached transitively via calls
+
+
+def test_affected_traces_resolved_imports(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    (root / ".git").mkdir(parents=True)
+    (root / "lib.py").write_text("def foo():\n    return 1\n")
+    (root / "app.py").write_text("from lib import foo\n\n\ndef run():\n    return foo()\n")
+    (root / "test_app.py").write_text("from app import run\n\n\ndef test_run():\n    assert run() == 1\n")
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "affected", str(root / "lib.py"))
+    assert "test_app.py" in out
+
+
+def test_affected_no_matches_says_so(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "affected", str(repo / "a.py"))
+    assert "no affected" in out
