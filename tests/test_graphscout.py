@@ -209,3 +209,48 @@ def test_affected_no_matches_says_so(repo, capsys):
     run(capsys, "build", str(repo))
     rc, out = run(capsys, "affected", str(repo / "a.py"))
     assert "no affected" in out
+
+
+def test_gitignore_is_honored_in_real_git_repo(tmp_path, monkeypatch, capsys):
+    """A real `git init` repo (not just a bare .git/ dir) should route through
+    `git ls-files`, so .gitignore is honored the same way git itself sees it."""
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "generated").mkdir()
+    (root / ".gitignore").write_text("generated/\n")
+    (root / "generated" / "gen.py").write_text("def gen():\n    return 1\n")
+    (root / "kept.py").write_text("def kept():\n    return 1\n")
+    rc, out = run(capsys, "build", str(root))
+    assert "1 files" in out
+    rc, out = run(capsys, "map", str(root))
+    assert "kept.py" in out and "generated" not in out
+
+
+def test_config_exclude_and_include_override(tmp_path, monkeypatch, capsys):
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "hidden_by_config.py").write_text("def a():\n    return 1\n")
+    (root / "kept.py").write_text("def b():\n    return 1\n")
+    (root / "graphscout.json").write_text('{"exclude": ["hidden_by_config.py"]}')
+    rc, out = run(capsys, "build", str(root))
+    assert "1 files" in out  # only kept.py — hidden_by_config.py excluded
+
+
+def test_config_include_overrides_gitignore(tmp_path, monkeypatch, capsys):
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "vendored_src").mkdir()
+    (root / ".gitignore").write_text("vendored_src/\n")
+    (root / "vendored_src" / "v.py").write_text("def v():\n    return 1\n")
+    (root / "graphscout.json").write_text('{"include": ["vendored_src/"]}')
+    rc, out = run(capsys, "build", str(root))
+    assert "1 files" in out

@@ -103,6 +103,22 @@ graphscout watch          # blocks, keeps the graph in sync as you/your agent ed
 
 Uses [watchdog](https://pypi.org/project/watchdog/) for instant, low-CPU filesystem events when installed (`pip install "graphscout[watch]"`); falls back to a ~1.5s mtime poll otherwise. This is the always-fresh alternative to the per-edit `touch` hook above — run one or the other, not both. Skip both and every query still self-heals via its own mtime check; `watch` just removes that per-query overhead.
 
+## Excludes, includes, custom extensions
+
+Zero-config by default. `graphscout` always skips `.git`, `node_modules`, `venv`/`.venv`, `dist`, `build`, `target`, `vendor`, and a handful more (hard-coded, `core.SKIP_DIRS`) — regardless of `.gitignore`. In a git repo it also honors `.gitignore` (via `git ls-files --exclude-standard`, so nested `.gitignore`s and the global excludes file all apply, exactly as git itself sees them); non-git directories skip this step and every non-hard-skipped file is a candidate.
+
+To go further, drop a `graphscout.json` at the repo root (mirrors codegraph.json's shape):
+
+```json
+{
+  "exclude": ["static/", "**/generated/**"],
+  "include": ["third_party/vendored_dep/"],
+  "extensions": {".tpl": "php"}
+}
+```
+
+`exclude` wins over everything, including `include`; `include` pulls a `.gitignore`d path back in but can't override the hard skip list. `extensions` maps a non-standard suffix onto one graphify already parses (metadata only — the CODE_EXTS set decides what gets walked at all, not how it's parsed).
+
 ## Why not just let the agent read files?
 
 Reading a 1,500-line file to find one function costs ~15k tokens; `graphscout file` returns the outline in ~200 tokens, and the agent then reads only the 40-line range it needs. `explore` goes further: it returns that 40-line range *inline*, so most structural questions never trigger a `Read` at all.
@@ -132,7 +148,7 @@ Honest limitations, printed in the output when they apply:
 
 ## How it works
 
-1. `build` walks the repo (skipping `node_modules`, `venv`, `dist`, …), runs tree-sitter extraction via graphify, normalizes all paths root-relative, and writes `graph.json` + an mtime index to `~/.cache/graphscout/<repo-hash>/`.
+1. `build` collects candidate files (`git ls-files --exclude-standard` in a git repo, honoring `.gitignore`; a plain walk otherwise — either way skipping `node_modules`, `venv`, `dist`, … and anything `graphscout.json` excludes), runs tree-sitter extraction via graphify, normalizes all paths root-relative, and writes `graph.json` + an mtime index to `~/.cache/graphscout/<repo-hash>/`.
 2. Every query calls `ensure` first: files whose mtime changed are re-extracted and spliced into the graph; deleted files are dropped. Typical refresh is a handful of files, so queries stay fast. `watch` does the same refresh on a timer/event loop instead of per-query.
 3. Output is deliberately plain text with `file:line` locations — clickable in most agent UIs and trivially parseable.
 

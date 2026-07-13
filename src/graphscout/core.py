@@ -5,9 +5,12 @@ override with $GRAPHSCOUT_CACHE). Extraction is delegated to graphify
 (tree-sitter AST parsing); this layer adds root discovery, mtime-based
 incremental rebuilds, and root-relative path normalization.
 """
+import fnmatch
 import hashlib
 import json
 import os
+import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -52,14 +55,89 @@ def find_root(start: Path) -> Path:
     return p
 
 
-def code_files(root: Path):
+def _load_config(root: Path) -> dict:
+    """Optional graphscout.json (codegraph.json also accepted, for projects
+    already carrying one): {"exclude": [...], "include": [...], "extensions":
+    {".ext": "lang"}} — gitignore-style glob patterns, root-relative."""
+    for name in ("graphscout.json", "codegraph.json"):
+        p = root / name
+        if p.exists():
+            try:
+                return json.loads(p.read_text())
+            except (json.JSONDecodeError, OSError):
+                print(f"WARNING: {p} is not valid JSON; ignoring", file=sys.stderr)
+    return {}
+
+
+def _glob_match(patterns, relpath: str) -> bool:
+    posix = relpath.replace(os.sep, "/")
+    name = posix.rsplit("/", 1)[-1]
+    for p in patterns:
+        pp = p.rstrip("/")
+        if fnmatch.fnmatch(posix, p) or fnmatch.fnmatch(name, p) or posix.startswith(pp + "/"):
+            return True
+    return False
+
+
+def _hits_skip_dirs(relpath: str) -> bool:
+    return any(part in SKIP_DIRS or part.startswith(".") for part in Path(relpath).parts[:-1])
+
+
+def _git_tracked(root: Path):
+    """Root-relative paths git would show as tracked or untracked-but-not-
+    ignored — i.e. everything .gitignore (nested files included, plus the
+    global excludesfile) says to keep. None if this isn't a usable git repo,
+    so callers fall back to a plain walk."""
+    if not shutil.which("git") or not (root / ".git").exists():
+        return None
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    return [p for p in r.stdout.decode(errors="replace").split("\0") if p]
+
+
+def _walk_all(root: Path):
+    """Every file under root, pruning only the hard-coded SKIP_DIRS/dotdirs —
+    ignores .gitignore entirely. Used for the non-git fallback and to let
+    `include` patterns pull gitignored paths back in."""
     out = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
         for f in filenames:
-            fp = Path(dirpath) / f
-            if fp.suffix in CODE_EXTS and fp.stat().st_size < MAX_FILE_BYTES:
+            out.append(str((Path(dirpath) / f).relative_to(root)))
+    return out
+
+
+def code_files(root: Path):
+    cfg = _load_config(root)
+    exts = CODE_EXTS | {"." + k.lstrip(".") for k in (cfg.get("extensions") or {})}
+    excludes, includes = cfg.get("exclude") or [], cfg.get("include") or []
+
+    tracked = _git_tracked(root)
+    base = tracked if tracked is not None else _walk_all(root)
+    base = [p for p in base if not _hits_skip_dirs(p)]
+
+    if includes:  # explicit opt-in overrides .gitignore, never the hard skip list
+        forced = [p for p in _walk_all(root) if _glob_match(includes, p)]
+        base = list(dict.fromkeys(base + forced))
+
+    if excludes:  # wins over everything, including `include`
+        base = [p for p in base if not _glob_match(excludes, p)]
+
+    out = []
+    for rel in base:
+        fp = root / rel
+        try:
+            if fp.suffix in exts and fp.stat().st_size < MAX_FILE_BYTES:
                 out.append(fp)
+        except OSError:
+            continue
     if len(out) > MAX_FILES:
         print(f"WARNING: {len(out)} code files; graphing first {MAX_FILES} "
               f"(largest dirs may be partial)", file=sys.stderr)
