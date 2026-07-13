@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 200" width="900" height="200" font-family="-apple-system,Segoe UI,sans-serif">
+  <defs>
+    <style>
+      @keyframes chip { 0%{ opacity:0; transform:translateY(6px) } 100%{ opacity:1; transform:translateY(0) } }
+      .c { animation: chip .5s ease-out both; }
+      .full text { fill:#7ee7c7; }
+      .out  text { fill:#a5b4fc; }
+    </style>
+  </defs>
+  <rect width="900" height="200" rx="14" fill="#0d1117" stroke="#30363d"/>
+
+  <text x="28" y="34" font-size="14" font-weight="700" fill="#f0f6fc">Language coverage</text>
+  <g transform="translate(28,44)">
+    <circle cx="6" cy="6" r="5" fill="#7ee7c7"/>
+    <text x="18" y="10" font-size="11.5" fill="#8b949e">full def · call · import extraction (13)</text>
+    <circle cx="330" cy="6" r="5" fill="#a5b4fc"/>
+    <text x="342" y="10" font-size="11.5" fill="#8b949e">outline + import structure (40+ more extensions)</text>
+  </g>
+
+  <!-- full-support chips -->
+  <g font-size="12" font-weight="600">
+    <g class="c full" style="animation-delay:.02s"><rect x="28"  y="68" width="66" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="61"  y="85" text-anchor="middle">Python</text></g>
+    <g class="c full" style="animation-delay:.05s"><rect x="102" y="68" width="60" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="132" y="85" text-anchor="middle">JS/TS</text></g>
+    <g class="c full" style="animation-delay:.08s"><rect x="170" y="68" width="52" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="196" y="85" text-anchor="middle">TSX</text></g>
+    <g class="c full" style="animation-delay:.11s"><rect x="230" y="68" width="56" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="258" y="85" text-anchor="middle">Java</text></g>
+    <g class="c full" style="animation-delay:.14s"><rect x="294" y="68" width="72" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="330" y="85" text-anchor="middle">Groovy</text></g>
+    <g class="c full" style="animation-delay:.17s"><rect x="374" y="68" width="44" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="396" y="85" text-anchor="middle">C</text></g>
+    <g class="c full" style="animation-delay:.20s"><rect x="426" y="68" width="52" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="452" y="85" text-anchor="middle">C++</text></g>
+    <g class="c full" style="animation-delay:.23s"><rect x="486" y="68" width="56" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="514" y="85" text-anchor="middle">Ruby</text></g>
+    <g class="c full" style="animation-delay:.26s"><rect x="550" y="68" width="44" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="572" y="85" text-anchor="middle">C#</text></g>
+    <g class="c full" style="animation-delay:.29s"><rect x="602" y="68" width="62" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="633" y="85" text-anchor="middle">Kotlin</text></g>
+    <g class="c full" style="animation-delay:.32s"><rect x="672" y="68" width="58" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="701" y="85" text-anchor="middle">Scala</text></g>
+    <g class="c full" style="animation-delay:.35s"><rect x="738" y="68" width="48" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="762" y="85" text-anchor="middle">PHP</text></g>
+    <g class="c full" style="animation-delay:.38s"><rect x="790" y="68" width="44" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="812" y="85" text-anchor="middle">Lua</text></g>
+    <g class="c full" style="animation-delay:.41s"><rect x="842" y="68" width="54" height="26" rx="13" fill="#12251e" stroke="#1f4d3d"/><text x="869" y="85" text-anchor="middle">Swift</text></g>
+  </g>
+
+  <!-- outline chips -->
+  <g font-size="12" font-weight="600">
+    <g class="c out" style="animation-delay:.44s"><rect x="28"  y="108" width="46" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="51"  y="125" text-anchor="middle">Go</text></g>
+    <g class="c out" style="animation-delay:.47s"><rect x="82"  y="108" width="54" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="109" y="125" text-anchor="middle">Rust</text></g>
+    <g class="c out" style="animation-delay:.50s"><rect x="144" y="108" width="52" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="170" y="125" text-anchor="middle">Vue</text></g>
+    <g class="c out" style="animation-delay:.53s"><rect x="204" y="108" width="66" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="237" y="125" text-anchor="middle">Svelte</text></g>
+    <g class="c out" style="animation-delay:.56s"><rect x="278" y="108" width="60" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="308" y="125" text-anchor="middle">Astro</text></g>
+    <g class="c out" style="animation-delay:.59s"><rect x="346" y="108" width="56" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="374" y="125" text-anchor="middle">Dart</text></g>
+    <g class="c out" style="animation-delay:.62s"><rect x="410" y="108" width="66" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="443" y="125" text-anchor="middle">Elixir</text></g>
+    <g class="c out" style="animation-delay:.65s"><rect x="484" y="108" width="86" height="26" rx="13" fill="#161a2e" stroke="#2d3566"/><text x="527" y="125" text-anchor="middle">Terraform</text></g>
+    <g class="c out" style="animation-delay:.68s"><rect x="578" y="108" width="118" height="26" rx="13" fill="#0f1420" stroke="#2d3566" stroke-dasharray="4 3"/><text x="637" y="125" text-anchor="middle" fill="#8b949e">+ 40 more…</text></g>
+  </g>
+
+  <text x="450" y="170" text-anchor="middle" font-size="11.5" fill="#8b949e">Parsing by graphify (tree-sitter). Unsupported files fall back to "read it directly" — honestly flagged.</text>
+</svg>

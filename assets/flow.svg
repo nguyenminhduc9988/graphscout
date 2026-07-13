@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220" font-family="'SFMono-Regular',Consolas,Menlo,monospace">
+  <defs>
+    <linearGradient id="wire" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7ee7c7"/><stop offset="1" stop-color="#a5b4fc"/>
+    </linearGradient>
+    <style>
+      @keyframes flow { to { stroke-dashoffset:-40; } }
+      @keyframes glow { 0%,100%{ opacity:.6 } 50%{ opacity:1 } }
+      @keyframes travel {
+        0%{ offset-distance:0%; opacity:0 } 5%{ opacity:1 }
+        95%{ opacity:1 } 100%{ offset-distance:100%; opacity:0 }
+      }
+      .wire { stroke-dasharray:6 6; animation: flow 1s linear infinite; }
+      .box  { animation: glow 3s ease-in-out infinite; }
+      .pkt  { offset-path: path('M150 110 H300 M450 110 H600 M750 110 H900'); animation: travel 3.4s linear infinite; }
+    </style>
+  </defs>
+  <rect width="900" height="220" rx="14" fill="#0d1117" stroke="#30363d"/>
+
+  <!-- connecting wires -->
+  <g stroke="url(#wire)" stroke-width="2.5" class="wire" fill="none">
+    <line x1="152" y1="110" x2="228" y2="110"/>
+    <line x1="374" y1="110" x2="450" y2="110"/>
+    <line x1="596" y1="110" x2="672" y2="110"/>
+  </g>
+
+  <!-- moving data packets -->
+  <circle class="pkt" r="4.5" fill="#7ee7c7"/>
+  <circle class="pkt" r="4.5" fill="#a5b4fc" style="animation-delay:1.1s"/>
+  <circle class="pkt" r="4.5" fill="#c4b5fd" style="animation-delay:2.2s"/>
+
+  <!-- stage 1: build -->
+  <g class="box">
+    <rect x="30" y="72" width="122" height="76" rx="12" fill="#131b26" stroke="#1f4d3d"/>
+    <text x="91" y="102" text-anchor="middle" font-size="24">📇</text>
+    <text x="91" y="126" text-anchor="middle" font-size="13" font-weight="700" fill="#7ee7c7">build</text>
+    <text x="91" y="142" text-anchor="middle" font-size="9.5" fill="#8b949e">git ls-files</text>
+  </g>
+  <!-- stage 2: extract -->
+  <g class="box" style="animation-delay:.6s">
+    <rect x="252" y="72" width="122" height="76" rx="12" fill="#131b26" stroke="#2d3566"/>
+    <text x="313" y="102" text-anchor="middle" font-size="24">🌳</text>
+    <text x="313" y="126" text-anchor="middle" font-size="13" font-weight="700" fill="#a5b4fc">tree-sitter</text>
+    <text x="313" y="142" text-anchor="middle" font-size="9.5" fill="#8b949e">def·call·import</text>
+  </g>
+  <!-- stage 3: cache -->
+  <g class="box" style="animation-delay:1.2s">
+    <rect x="474" y="72" width="122" height="76" rx="12" fill="#131b26" stroke="#3d2d66"/>
+    <text x="535" y="102" text-anchor="middle" font-size="24">💾</text>
+    <text x="535" y="126" text-anchor="middle" font-size="13" font-weight="700" fill="#c4b5fd">graph.json</text>
+    <text x="535" y="142" text-anchor="middle" font-size="9.5" fill="#8b949e">+ mtime index</text>
+  </g>
+  <!-- stage 4: query -->
+  <g class="box" style="animation-delay:1.8s">
+    <rect x="696" y="72" width="174" height="76" rx="12" fill="#131b26" stroke="#1f4d3d"/>
+    <text x="783" y="100" text-anchor="middle" font-size="22">⚡</text>
+    <text x="783" y="124" text-anchor="middle" font-size="13" font-weight="700" fill="#7ee7c7">explore · search</text>
+    <text x="783" y="140" text-anchor="middle" font-size="10.5" fill="#8b949e">impact · affected</text>
+  </g>
+
+  <text x="450" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#f0f6fc">One build per repo — then every query auto-refreshes only what changed</text>
+  <text x="450" y="188" text-anchor="middle" font-size="11" fill="#8b949e">no daemon · no database server · no API keys · a JSON cache under ~/.cache/graphscout</text>
+</svg>

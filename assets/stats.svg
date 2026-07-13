@@ -1,1 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 150" width="900" height="150"><rect width="900" height="150" fill="#0d1117"/><rect x="0.0" y="0" width="284.0" height="150" rx="12" fill="#161b22" stroke="#30363d"/><text x="142.0" y="58" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="34" font-weight="700" fill="#7ee7c7">75%</text><text x="142.0" y="84" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="600" fill="#c9d1d9">fewer tool calls</text><text x="142.0" y="108" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#8b949e">explore vs. the old</text><text x="142.0" y="123" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#8b949e">sym+file+callers+callees chain</text><rect x="308.0" y="0" width="284.0" height="150" rx="12" fill="#161b22" stroke="#30363d"/><text x="450.0" y="58" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="34" font-weight="700" fill="#7ee7c7">1 vs 4</text><text x="450.0" y="84" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="600" fill="#c9d1d9">calls per question</text><text x="450.0" y="108" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#8b949e">verbatim source included, not just</text><text x="450.0" y="123" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#8b949e">a location</text><rect x="616.0" y="0" width="284.0" height="150" rx="12" fill="#161b22" stroke="#30363d"/><text x="758.0" y="58" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="34" font-weight="700" fill="#7ee7c7">21 / 21</text><text x="758.0" y="84" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="14" font-weight="600" fill="#c9d1d9">tests passing</text><text x="758.0" y="108" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#8b949e">gitignore, config, explore,</text><text x="758.0" y="123" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif" font-size="11.5" fill="#8b949e">search, impact, affected</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 150" width="900" height="150" font-family="-apple-system,Segoe UI,sans-serif">
+  <defs>
+    <style>
+      @keyframes pop  { 0%{ opacity:0; transform:translateY(8px) scale(.9) } 100%{ opacity:1; transform:translateY(0) scale(1) } }
+      @keyframes glow { 0%,100%{ stroke:#30363d } 50%{ stroke:#7ee7c7 } }
+      @keyframes bar  { 0%{ transform:scaleX(0) } 100%{ transform:scaleX(1) } }
+      .card { animation: glow 4s ease-in-out infinite; }
+      .big  { animation: pop .8s cubic-bezier(.2,.8,.2,1) both; transform-origin:center; }
+      .ubar { animation: bar 1.4s ease-out both; transform-origin:left; }
+      .mono { font-family:'SFMono-Regular',Consolas,monospace; }
+    </style>
+  </defs>
+  <rect width="900" height="150" fill="#0d1117"/>
+
+  <g>
+    <rect class="card" x="0" y="4" width="284" height="142" rx="12" fill="#12121a" stroke="#30363d"/>
+    <text class="big mono" x="142" y="58" text-anchor="middle" font-size="36" font-weight="800" fill="#7ee7c7">75%</text>
+    <rect class="ubar" x="92" y="66" width="100" height="3" rx="1.5" fill="#7ee7c7"/>
+    <text x="142" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="#f1f5f9">fewer tool calls</text>
+    <text x="142" y="112" text-anchor="middle" font-size="11.5" fill="#8b949e">explore vs. the old</text>
+    <text x="142" y="127" text-anchor="middle" font-size="11.5" fill="#8b949e">sym+file+callers+callees chain</text>
+  </g>
+  <g>
+    <rect class="card" x="308" y="4" width="284" height="142" rx="12" fill="#12121a" stroke="#30363d" style="animation-delay:1.3s"/>
+    <text class="big mono" x="450" y="58" text-anchor="middle" font-size="36" font-weight="800" fill="#a5b4fc" style="animation-delay:.15s">1 vs 4</text>
+    <rect class="ubar" x="400" y="66" width="100" height="3" rx="1.5" fill="#a5b4fc" style="animation-delay:.15s"/>
+    <text x="450" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="#f1f5f9">calls per question</text>
+    <text x="450" y="112" text-anchor="middle" font-size="11.5" fill="#8b949e">verbatim source included,</text>
+    <text x="450" y="127" text-anchor="middle" font-size="11.5" fill="#8b949e">not just a location</text>
+  </g>
+  <g>
+    <rect class="card" x="616" y="4" width="284" height="142" rx="12" fill="#12121a" stroke="#30363d" style="animation-delay:2.6s"/>
+    <text class="big mono" x="758" y="58" text-anchor="middle" font-size="36" font-weight="800" fill="#7ee787" style="animation-delay:.3s">21 / 21</text>
+    <rect class="ubar" x="708" y="66" width="100" height="3" rx="1.5" fill="#7ee787" style="animation-delay:.3s"/>
+    <text x="758" y="90" text-anchor="middle" font-size="14" font-weight="700" fill="#f1f5f9">tests passing</text>
+    <text x="758" y="112" text-anchor="middle" font-size="11.5" fill="#8b949e">gitignore, config, explore,</text>
+    <text x="758" y="127" text-anchor="middle" font-size="11.5" fill="#8b949e">search, impact, affected</text>
+  </g>
+</svg>

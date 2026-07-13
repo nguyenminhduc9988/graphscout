@@ -1,37 +1,69 @@
 <div align="center">
 
-# graphscout
+<img src="assets/hero.svg" alt="graphscout — query code structure, don't read whole files" width="900"/>
 
-**Cached, incremental code-graph maps so AI agents query code structure instead of reading whole files.**
+<br/>
 
-[![PyPI](https://img.shields.io/pypi/v/graphscout.svg?color=7ee7c7&label=PyPI)](https://pypi.org/project/graphscout/)
-[![Python](https://img.shields.io/pypi/pyversions/graphscout.svg?color=7ee7c7)](https://pypi.org/project/graphscout/)
+[![PyPI](https://img.shields.io/pypi/v/graphscout.svg?color=7ee7c7&label=PyPI&logo=pypi&logoColor=white)](https://pypi.org/project/graphscout/)
+[![Python](https://img.shields.io/pypi/pyversions/graphscout.svg?color=7ee7c7&logo=python&logoColor=white)](https://pypi.org/project/graphscout/)
 [![CI](https://github.com/nguyenminhduc9988/graphscout/actions/workflows/ci.yml/badge.svg)](https://github.com/nguyenminhduc9988/graphscout/actions/workflows/ci.yml)
-[![Downloads](https://img.shields.io/pypi/dm/graphscout.svg?color=a5b4fc)](https://pypi.org/project/graphscout/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-a5b4fc.svg)](LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/graphscout.svg?color=a5b4fc&logo=pypi&logoColor=white)](https://pypi.org/project/graphscout/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-c4b5fd.svg)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-ready-7ee7c7.svg?logo=anthropic&logoColor=white)](#-mcp-wired-automatically)
 [![Stars](https://img.shields.io/github/stars/nguyenminhduc9988/graphscout.svg?style=social)](https://github.com/nguyenminhduc9988/graphscout/stargazers)
 
-[![Typing SVG](https://readme-typing-svg.demolab.com/?font=Fira+Code&size=18&pause=1200&color=7EE7C7&center=true&vCenter=true&width=680&lines=Query+code+structure+instead+of+reading+whole+files;One+call+%3D+verbatim+source+%2B+call+edges+%2B+blast+radius;Cached+~+incremental+~+zero+API+keys)](https://github.com/nguyenminhduc9988/graphscout)
+[![Typing SVG](https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=19&pause=1000&color=7EE7C7&center=true&vCenter=true&width=720&lines=Where+is+this+defined%3F+%E2%80%94+one+call.;Who+calls+this%3F+%E2%80%94+one+call.;What+breaks+if+I+change+it%3F+%E2%80%94+one+call.;Cached+~+incremental+~+zero+API+keys.)](https://github.com/nguyenminhduc9988/graphscout)
 
-<img src="assets/demo.svg" alt="graphscout explore / search / impact demo — real, verified CLI output" width="900"/>
+<br/>
 
-<sub>Real captured CLI output, not mockups — every line above comes from an actual `graphscout` run on this repo.</sub>
+<a href="#-install"><img src="https://img.shields.io/badge/⚡_Install-pip_install_graphscout-7ee7c7?style=for-the-badge&labelColor=0d1117" alt="Install"/></a>
+&nbsp;
+<a href="#-mcp-wired-automatically"><img src="https://img.shields.io/badge/🔌_Wire_MCP-graphscout_install-a5b4fc?style=for-the-badge&labelColor=0d1117" alt="Wire MCP"/></a>
+&nbsp;
+<a href="#-benchmark"><img src="https://img.shields.io/badge/📊_Benchmark-75%25_fewer_calls-c4b5fd?style=for-the-badge&labelColor=0d1117" alt="Benchmark"/></a>
 
 </div>
 
 ---
 
-Agents burn most of their tokens reading source files to answer structural questions — "where is this defined?", "who calls this?", "what breaks if I change this?". `graphscout` answers those from a cached tree-sitter AST graph in milliseconds, and **`explore` returns the matching symbols' verbatim source plus their call edges and blast radius in one call** — so the agent usually doesn't need a follow-up `Read` at all.
+<div align="center">
+<img src="assets/demo.svg" alt="graphscout explore / search / impact demo — real, verified CLI output" width="900"/>
+<br/>
+<sub>▲ Real captured CLI output, not mockups — every line comes from an actual <code>graphscout</code> run on this repo.</sub>
+</div>
+
+<br/>
+
+> **The problem.** AI agents burn most of their tokens *reading source files* to answer structural questions — *"where is this defined?"*, *"who calls this?"*, *"what breaks if I change it?"*
+>
+> **The fix.** `graphscout` answers those from a cached tree-sitter AST graph in milliseconds — and **`explore` returns the matching symbols' verbatim source plus their call edges and blast radius in one call**, so the agent usually doesn't need a follow-up `Read` at all.
 
 <div align="center">
 <img src="assets/stats.svg" alt="75% fewer tool calls · 1 call vs 4 · 21/21 tests passing" width="900"/>
+<br/>
+<sup>Measured, not asserted — see <a href="#-benchmark">Benchmark</a> for methodology and how to reproduce it yourself.</sup>
 </div>
 
-<sup>Measured, not asserted — see [Benchmark](#-benchmark) for methodology and how to reproduce it yourself.</sup>
+<br/>
 
 One `build` per repo; after that, every query auto-refreshes only the files that changed since the last call (mtime-based). No forced background process, no external database, no API keys — a JSON cache under `~/.cache/graphscout`, plus an in-memory SQLite FTS5 index built on demand for search. Want it always fresh with zero per-query overhead instead? Run `graphscout watch`.
 
-> Formerly published as `codegraph-kit` (repo `codegraph`) — renamed to avoid confusion with the unrelated, much larger [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph). Same cache format (`$CODEGRAPH_CACHE` still works). See [Honest comparison](#-honest-comparison-vs-colbymchenrycodegraph) below for exactly where each tool wins.
+<sub>Formerly published as <code>codegraph-kit</code> (repo <code>codegraph</code>) — renamed to avoid confusion with the unrelated, much larger <a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a>. Same cache format (<code>$CODEGRAPH_CACHE</code> still works). See <a href="#-honest-comparison-vs-colbymchenrycodegraph">Honest comparison</a> for exactly where each tool wins.</sub>
+
+## 🎯 The one idea: blast radius in one call
+
+The single most expensive question an agent asks is *"what breaks if I change this?"* — normally answered by reading file after file. `graphscout impact` walks the call graph both directions and hands back the **whole** affected set, ranked by depth:
+
+<div align="center">
+<img src="assets/blast.svg" alt="Animated blast-radius ripple — change one symbol, see everything it touches at depth 1 and depth 2" width="900"/>
+</div>
+
+```bash
+graphscout impact parse_config --depth=2      # what breaks if I change this?
+git diff --name-only | graphscout affected --stdin   # which tests does my diff touch?
+```
+
+No dynamic-dispatch guesswork dressed up as certainty — edges come from static AST analysis, and the honest limits are printed right in the output when they apply.
 
 ## 📦 Install
 
@@ -41,20 +73,72 @@ pip install "graphscout[mcp]"   # CLI + MCP server
 pip install "graphscout[watch]" # CLI + instant filesystem-event auto-sync
 ```
 
-Python ≥ 3.10. Parsing is done by [graphify](https://pypi.org/project/graphifyy/) (tree-sitter), with full def/call/import extraction for Python, JS/TS/TSX, Java, Groovy, C, C++, Ruby, C#, Kotlin, Scala, PHP, Lua, and Swift — and outline/import-level structure for 40+ more extensions (Go, Rust, Vue, Svelte, Astro, Dart, Elixir, Terraform, and more).
+Python ≥ 3.10. Parsing is done by [graphify](https://pypi.org/project/graphifyy/) (tree-sitter).
+
+<div align="center">
+<img src="assets/langs.svg" alt="Language coverage — 13 with full def/call/import extraction, 40+ more with outline structure" width="900"/>
+</div>
 
 ## ✨ What you get
 
-| | |
-|---|---|
-| 🔎 **`explore` — one call, not four** | Verbatim source + callers/callees + multi-hop blast radius for the top-matching symbols. The shape an agent actually needs, instead of chaining `sym → file → callers → Read`. |
-| 🧠 **Ranked full-text search** | In-memory SQLite FTS5 (bm25, prefix, multi-term) — not a plain substring scan — and docstring nodes are excluded so real symbols aren't drowned out by prose. |
-| 💥 **Multi-hop impact analysis** | Bidirectional BFS over the call graph, depth-bounded — the *actual* blast radius of a change, not a one-hop callers/callees guess. |
-| 🧪 **Test-impact from a diff** | `git diff --name-only \| graphscout affected --stdin` — which tests does this change touch, traced through resolved imports. |
-| 🙈 **`.gitignore`-aware indexing** | Routes through `git ls-files --exclude-standard` in a git repo — nested `.gitignore`s and the global excludes file are honored exactly as git sees them. Hard-coded skips (`node_modules`, `vendor`, `dist`, …) apply regardless. |
-| ⚙️ **`exclude` / `include` / `extensions` config** | Optional `graphscout.json` — force a vendored path back in, drop noisy generated code, or map a non-standard suffix onto a supported language. |
-| ⚡ **Incremental, mtime-based cache** | One `build` per repo; every query re-extracts only what changed. No database server, no daemon required — `graphscout watch` is opt-in. |
-| 🔌 **CLI *and* MCP** | Same queries either way — shell out from any agent, or wire the MCP server into Claude Code, Codex, Gemini CLI, and Cursor with one command. |
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🔎 `explore` — one call, not four
+Verbatim source + callers/callees + multi-hop blast radius for the top-matching symbols. The shape an agent actually needs, instead of chaining `sym → file → callers → Read`.
+
+</td>
+<td width="50%" valign="top">
+
+### 🧠 Ranked full-text search
+In-memory SQLite FTS5 (bm25, prefix, multi-term) — not a plain substring scan — and docstring nodes are excluded so real symbols aren't drowned out by prose.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 💥 Multi-hop impact analysis
+Bidirectional BFS over the call graph, depth-bounded — the *actual* blast radius of a change, not a one-hop callers/callees guess.
+
+</td>
+<td width="50%" valign="top">
+
+### 🧪 Test-impact from a diff
+`git diff --name-only \| graphscout affected --stdin` — which tests does this change touch, traced through resolved imports.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🙈 `.gitignore`-aware indexing
+Routes through `git ls-files --exclude-standard` — nested `.gitignore`s and the global excludes file honored exactly as git sees them. Hard-coded skips (`node_modules`, `dist`, …) apply regardless.
+
+</td>
+<td width="50%" valign="top">
+
+### ⚡ Incremental, mtime-based cache
+One `build` per repo; every query re-extracts only what changed. No database server, no daemon required — `graphscout watch` is opt-in.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### ⚙️ `exclude` / `include` / `extensions`
+Optional `graphscout.json` — force a vendored path back in, drop noisy generated code, or map a non-standard suffix onto a supported language.
+
+</td>
+<td width="50%" valign="top">
+
+### 🔌 CLI *and* MCP
+Same queries either way — shell out from any agent, or wire the MCP server into Claude Code, Codex, Gemini CLI, and Cursor with one command.
+
+</td>
+</tr>
+</table>
 
 ## 🧭 Commands
 
@@ -76,12 +160,16 @@ Python ≥ 3.10. Parsing is done by [graphify](https://pypi.org/project/graphify
 | `graphscout install [agent...]` / `uninstall` | wire (or remove) the MCP server for detected agents |
 | `graphscout mcp` | run as an MCP server (stdio) |
 
-```bash
-git diff --name-only | graphscout affected --stdin   # which tests does my diff touch?
-graphscout impact CLIFallback --depth=4               # what breaks if I change this class?
-```
-
 ## 🏗️ How it works
+
+<div align="center">
+<img src="assets/flow.svg" alt="build → tree-sitter extraction → graph.json cache → query, with data flowing through the pipeline" width="900"/>
+</div>
+
+<details>
+<summary><b>📐 The same pipeline as a Mermaid diagram</b> (click to expand)</summary>
+
+<br/>
 
 ```mermaid
 flowchart LR
@@ -96,9 +184,9 @@ flowchart LR
     style G fill:#a5b4fc,color:#0d1117
 ```
 
-Every query calls `ensure` first — files whose mtime changed are re-extracted and spliced into the graph; deleted files drop out. Typical refresh touches a handful of files, so queries stay fast. Output is deliberately plain text with `file:line` locations — clickable in most agent UIs, trivially parseable by the rest.
+</details>
 
-Set `GRAPHSCOUT_CACHE` to relocate the cache (useful in CI and sandboxes).
+Every query calls `ensure` first — files whose mtime changed are re-extracted and spliced into the graph; deleted files drop out. Typical refresh touches a handful of files, so queries stay fast. Output is deliberately plain text with `file:line` locations — clickable in most agent UIs, trivially parseable by the rest. Set `GRAPHSCOUT_CACHE` to relocate the cache (useful in CI and sandboxes).
 
 ## 🤖 Integrate with any agent
 
@@ -120,7 +208,7 @@ chmod +x ~/.claude/hooks/graphscout-touch.sh
 
 Even without a hook, queries stay correct — every query runs an mtime check first and re-extracts anything stale.
 
-### MCP, wired automatically
+### 🔌 MCP, wired automatically
 
 ```bash
 pip install "graphscout[mcp]"
@@ -133,7 +221,7 @@ graphscout uninstall        # reverse it
 
 Tools exposed: `explore` (lead with this), `search`, `impact`, `affected`, `build_graph`, `graph_map`, `file_outline`, `find_symbol`, `callers`, `callees`, `file_deps`. The server's `instructions` steer the agent to `explore` first — one strong tool beats a menu of narrow ones.
 
-### Auto-sync (optional)
+### 🔄 Auto-sync (optional)
 
 ```bash
 graphscout watch          # blocks, keeps the graph in sync as you/your agent edit files
@@ -169,13 +257,15 @@ To go further, drop a `graphscout.json` at the repo root:
 Call-count savings are structural (4 calls collapse to 1 regardless of repo size); payload savings vary with how verbose the old path's raw listings are versus one focused snippet.
 
 <details>
-<summary><b>Honest limitations</b> (printed in the output when they apply)</summary>
+<summary><b>⚠️ Honest limitations</b> (also printed in the output when they apply)</summary>
+
+<br/>
 
 - **Dynamic dispatch isn't captured** — call edges come from static AST analysis; `getattr`-style calls need grep.
 - **Unsupported/exotic languages** fall back to "read it directly".
 - **`affected` under-detects on multi-name absolute imports** — `from pkg import a, b` resolves to one edge on the package, not per-name. Relative imports and single-name absolute imports resolve fully.
 - **No line ranges from the extractor** — graphify records a start line per symbol, not start+end; `explore`'s snippet end is inferred as "the line before the next symbol in the same file" (capped at 60 lines).
-- Caps: 5,000 files per repo, 1 MB per file (warned, not silent); blast-radius/impact traversal stops at 400 nodes (flagged `(truncated)`).
+- **Caps:** 5,000 files per repo, 1 MB per file (warned, not silent); blast-radius/impact traversal stops at 400 nodes (flagged `(truncated)`).
 
 </details>
 
@@ -201,16 +291,34 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 
 If you need 34-language coverage, iOS/React-Native bridging, or framework route detection, use codegraph. If you want a small, auditable, telemetry-free tool that does one thing — make every structural query self-sufficient for an agent — that's what `graphscout` optimizes for.
 
-## 📈 Star History
+## 📈 Star history
 
+<div align="center">
 <a href="https://www.star-history.com/#nguyenminhduc9988/graphscout&Date">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=nguyenminhduc9988/graphscout&type=Date&theme=dark" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=nguyenminhduc9988/graphscout&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=nguyenminhduc9988/graphscout&type=Date" width="700"/>
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=nguyenminhduc9988/graphscout&type=Date" width="720"/>
  </picture>
 </a>
+</div>
 
-## License
+---
 
-MIT
+<div align="center">
+
+**If `graphscout` saved your agent a few thousand tokens, drop a ⭐ — it's the whole marketing budget.**
+
+<br/>
+
+<a href="https://github.com/nguyenminhduc9988/graphscout/stargazers"><img src="https://img.shields.io/badge/⭐_Star_this_repo-0d1117?style=for-the-badge&logo=github" alt="Star"/></a>
+&nbsp;
+<a href="https://pypi.org/project/graphscout/"><img src="https://img.shields.io/badge/📦_pip_install_graphscout-7ee7c7?style=for-the-badge&labelColor=0d1117" alt="pip install"/></a>
+&nbsp;
+<a href="https://github.com/nguyenminhduc9988/graphscout/issues"><img src="https://img.shields.io/badge/🐛_Report_an_issue-a5b4fc?style=for-the-badge&labelColor=0d1117" alt="Issues"/></a>
+
+<br/><br/>
+
+<sub>MIT © <a href="https://github.com/nguyenminhduc9988">Duc Nguyen</a> · Parsing by <a href="https://pypi.org/project/graphifyy/">graphify</a> (tree-sitter) · Built for agents, auditable by humans</sub>
+
+</div>
