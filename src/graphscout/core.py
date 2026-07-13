@@ -1,7 +1,7 @@
 """Graph building, caching, and incremental refresh.
 
-Graphs are stored per-repo under the cache dir (default ~/.cache/codegraph,
-override with $CODEGRAPH_CACHE). Extraction is delegated to graphify
+Graphs are stored per-repo under the cache dir (default ~/.cache/graphscout,
+override with $GRAPHSCOUT_CACHE). Extraction is delegated to graphify
 (tree-sitter AST parsing); this layer adds root discovery, mtime-based
 incremental rebuilds, and root-relative path normalization.
 """
@@ -12,8 +12,19 @@ import sys
 import time
 from pathlib import Path
 
-CODE_EXTS = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs", ".java",
-             ".rb", ".c", ".h", ".cpp", ".hpp", ".cs", ".php", ".swift", ".kt", ".sh"}
+# Every extension graphify can walk into a real language extractor (defs, calls,
+# imports) — not just files it can list. Kept as a static set rather than
+# importing graphify.detect at module scope, since that's an internal API.
+CODE_EXTS = {
+    ".py", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".ejs", ".ets", ".vue", ".svelte", ".astro",
+    ".go", ".rs", ".zig", ".java", ".groovy", ".kt", ".kts", ".scala",
+    ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cs", ".razor", ".cshtml",
+    ".rb", ".php", ".swift", ".m", ".mm", ".lua", ".luau", ".dart",
+    ".ex", ".exs", ".jl", ".r", ".v", ".sv", ".svh",
+    ".pas", ".pp", ".dpr", ".dpk", ".lpr", ".lpk", ".dfm", ".lfm",
+    ".sh", ".bash", ".ps1", ".hcl", ".tf", ".tfvars",
+    ".f", ".f90", ".f95", ".f03", ".f08",
+}
 SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build",
              ".next", "target", ".cache", "vendor", "site-packages", ".tox", "coverage"}
 MAX_FILES = 5000
@@ -21,8 +32,8 @@ MAX_FILE_BYTES = 1_000_000
 
 
 def cache_dir() -> Path:
-    env = os.environ.get("CODEGRAPH_CACHE")
-    return Path(env) if env else Path.home() / ".cache" / "codegraph"
+    env = os.environ.get("GRAPHSCOUT_CACHE") or os.environ.get("CODEGRAPH_CACHE")
+    return Path(env) if env else Path.home() / ".cache" / "graphscout"
 
 
 def roots_file() -> Path:
@@ -157,7 +168,7 @@ def build(root: Path, only_changed=False):
 def ensure(root: Path):
     graph, idx, n = build(root, only_changed=True)
     if n:
-        print(f"[codegraph] refreshed {n} file(s)", file=sys.stderr)
+        print(f"[graphscout] refreshed {n} file(s)", file=sys.stderr)
     return graph
 
 
@@ -179,3 +190,50 @@ def touch(target: Path, root: Path):
     else:
         idx["mtimes"].pop(f, None)
     save(root, {"nodes": nodes, "edges": edges}, idx)
+
+
+def watch(root: Path, interval: float = 1.5):
+    """Block, keeping root's graph in sync as files change. Yields a status
+    line each time it re-syncs (empty string on no-op polls). No hook or
+    per-edit `touch` call needed while this runs — the opposite of `ensure`'s
+    on-demand model. Uses watchdog for instant, low-CPU events when installed
+    ($ pip install "graphscout[watch]"); falls back to mtime polling otherwise.
+    """
+    if not load(root)[0]:
+        build(root)
+        yield f"[graphscout] initial build of {root}"
+
+    try:
+        from watchdog.events import FileSystemEventHandler
+        from watchdog.observers import Observer
+    except ImportError:
+        while True:
+            time.sleep(interval)
+            _g, _idx, n = build(root, only_changed=True)
+            if n:
+                yield f"[graphscout] refreshed {n} file(s)"
+        return
+
+    import queue
+    q = queue.Queue()
+
+    class Handler(FileSystemEventHandler):
+        def on_any_event(self, event):
+            if not event.is_directory and Path(event.src_path).suffix in CODE_EXTS:
+                q.put(1)
+
+    observer = Observer()
+    observer.schedule(Handler(), str(root), recursive=True)
+    observer.start()
+    try:
+        while True:
+            q.get()
+            time.sleep(0.3)  # debounce bursts (saves, formatters, git checkouts)
+            while not q.empty():
+                q.get_nowait()
+            _g, _idx, n = build(root, only_changed=True)
+            if n:
+                yield f"[graphscout] refreshed {n} file(s)"
+    finally:
+        observer.stop()
+        observer.join()

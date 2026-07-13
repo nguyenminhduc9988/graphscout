@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph_kit import cli, core
+from graphscout import cli, core
 
 A_PY = '''\
 import os
@@ -31,7 +31,7 @@ class Runner:
 
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
-    monkeypatch.setenv("CODEGRAPH_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
     root = tmp_path / "repo"
     (root / ".git").mkdir(parents=True)
     (root / "a.py").write_text(A_PY)
@@ -109,9 +109,9 @@ def test_touch_single_file(repo, capsys):
 
 def test_agent_snippet_and_version(repo, capsys):
     rc, out = run(capsys, "agent")
-    assert "codegraph map" in out and "codegraph sym" in out
+    assert "graphscout map" in out and "graphscout sym" in out
     rc, out = run(capsys, "--version")
-    assert out.startswith("codegraph ")
+    assert out.startswith("graphscout ")
 
 
 def test_unknown_command(repo, capsys):
@@ -125,3 +125,48 @@ def test_cache_is_root_scoped(repo, capsys):
     assert (d / "graph.json").exists()
     roots = json.loads(core.roots_file().read_text())
     assert str(repo) in roots
+
+
+def test_watch_polling_refresh(repo, monkeypatch):
+    """Without watchdog installed, watch() falls back to mtime polling."""
+    monkeypatch.setitem(__import__("sys").modules, "watchdog", None)
+    monkeypatch.setattr(core.time, "sleep", lambda _s: None)
+
+    gen = core.watch(repo, interval=0.01)
+    first = next(gen)
+    assert "initial build" in first
+
+    time.sleep(0.01)
+    (repo / "a.py").write_text(A_PY + "\n\ndef watched_fn():\n    return 1\n")
+    os.utime(repo / "a.py")
+    second = next(gen)
+    assert "refreshed" in second
+    gen.close()
+
+    g, _ = core.load(repo)
+    assert any("watched_fn" in n.get("label", "") for n in g["nodes"])
+
+
+def test_install_uninstall_json_agent(tmp_path, monkeypatch):
+    from graphscout import agents
+
+    cursor_path = tmp_path / "cursor" / "mcp.json"
+    monkeypatch.setitem(agents.AGENTS, "cursor", {"kind": "json", "path": cursor_path})
+
+    log = agents.install(["cursor"])
+    assert any("wired" in line for line in log)
+    cfg = json.loads(cursor_path.read_text())
+    assert cfg["mcpServers"]["graphscout"]["command"] == "graphscout"
+
+    log = agents.uninstall(["cursor"])
+    assert any("removed" in line for line in log)
+    cfg = json.loads(cursor_path.read_text())
+    assert "graphscout" not in cfg["mcpServers"]
+
+
+def test_detect_skips_missing_cli_agent(monkeypatch):
+    from graphscout import agents
+
+    monkeypatch.setattr(agents.shutil, "which", lambda _b: None)
+    present = agents.detect()
+    assert all(ok is False for name, ok in present.items() if agents.AGENTS[name]["kind"] == "cli")

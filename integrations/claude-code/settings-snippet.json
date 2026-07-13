@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/codegraph-touch.sh",
+            "command": "~/.claude/hooks/graphscout-touch.sh",
             "timeout": 60,
             "async": true
           }

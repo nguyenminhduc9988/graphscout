@@ -1,7 +1,7 @@
-"""MCP server exposing codegraph queries as tools, for agents that speak MCP
-instead of shelling out. Requires the `mcp` extra: pip install codegraph-kit[mcp]
+"""MCP server exposing graphscout queries as tools, for agents that speak MCP
+instead of shelling out. Requires the `mcp` extra: pip install graphscout[mcp]
 
-Run:  codegraph mcp        (stdio transport)
+Run:  graphscout mcp        (stdio transport)
 """
 from pathlib import Path
 
@@ -11,11 +11,11 @@ try:
     from mcp.server.fastmcp import FastMCP
 except ImportError as e:  # pragma: no cover
     raise SystemExit(
-        "MCP support needs the optional dependency: pip install codegraph-kit[mcp]"
+        "MCP support needs the optional dependency: pip install graphscout[mcp]"
     ) from e
 
 server = FastMCP(
-    "codegraph",
+    "graphscout",
     instructions=(
         "Cached tree-sitter code graphs. Query structure (outlines, symbols, "
         "call edges, imports) instead of reading whole files; then read only "

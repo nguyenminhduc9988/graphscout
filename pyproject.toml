@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "codegraph-kit"
-version = "0.1.0"
-description = "Cached, incremental code-graph maps so AI agents query code structure instead of reading whole files. Works with any agent: CLI for Claude Code/Codex/Cursor/Aider, optional MCP server."
+name = "graphscout"
+version = "0.2.0"
+description = "Cached, incremental code-graph maps so AI agents query code structure instead of reading whole files. CLI + MCP server, wires into Claude Code, Codex, Gemini CLI, and Cursor. Auto-sync watch mode."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -29,15 +29,16 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]
+watch = ["watchdog>=4.0"]
 dev = ["pytest>=8", "build", "twine"]
 
 [project.scripts]
-codegraph = "codegraph_kit.cli:main"
+graphscout = "graphscout.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/nguyenminhduc9988/codegraph"
-Repository = "https://github.com/nguyenminhduc9988/codegraph"
-Issues = "https://github.com/nguyenminhduc9988/codegraph/issues"
+Homepage = "https://github.com/nguyenminhduc9988/graphscout"
+Repository = "https://github.com/nguyenminhduc9988/graphscout"
+Issues = "https://github.com/nguyenminhduc9988/graphscout/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codegraph_kit"]
+packages = ["src/graphscout"]

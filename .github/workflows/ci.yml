@@ -17,6 +17,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        run: pip install -e ".[dev,mcp]"
+        run: pip install -e ".[dev,mcp,watch]"
       - name: Test
         run: pytest -v
