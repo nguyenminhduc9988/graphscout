@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "graphscout"
-version = "0.4.0"
+version = "0.4.1"
 description = "Cached, incremental code-graph maps so AI agents query code structure instead of reading whole files. `explore` returns verbatim source + call edges + blast radius in one call; plus FTS5 search, multi-hop impact analysis, import-based affected-tests, and .gitignore-aware indexing with exclude/include config. CLI + MCP server, wires into Claude Code, Codex, Gemini CLI, and Cursor. Auto-sync watch mode."
 readme = "README.md"
 license = "MIT"

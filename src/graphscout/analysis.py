@@ -27,9 +27,15 @@ def lang_for(source_file: str) -> str:
 def node_spans(g) -> dict:
     """id -> (start_line, next_start_line_in_same_file_or_None). graphify only
     records a start line per node, not a range, so the end of a snippet is
-    inferred as the line before the next node's start in the same file."""
+    inferred as the line before the next node's start in the same file.
+    Docstring/comment ('rationale') nodes are excluded from the boundary
+    calculation — graphify places a function's docstring node on the very
+    next line after its def, which would otherwise truncate the function's
+    own snippet to just its signature."""
     by_file = defaultdict(list)
     for n in g["nodes"]:
+        if n.get("file_type") == "rationale":
+            continue
         m = re.match(r"L(\d+)", n.get("source_location", "") or "")
         if m:
             by_file[n.get("source_file", "")].append((int(m.group(1)), n["id"]))

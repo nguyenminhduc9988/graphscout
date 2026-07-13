@@ -242,6 +242,24 @@ def test_config_exclude_and_include_override(tmp_path, monkeypatch, capsys):
     assert "1 files" in out  # only kept.py — hidden_by_config.py excluded
 
 
+def test_explore_snippet_not_truncated_by_docstring(tmp_path, monkeypatch, capsys):
+    """A function's own docstring node sits on the line right after `def` —
+    node_spans must not treat that as "the next symbol" and cut the snippet
+    down to just the signature."""
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    (root / ".git").mkdir(parents=True)
+    (root / "mod.py").write_text(
+        'def documented(x):\n'
+        '    """This is a docstring long enough to be its own rationale node."""\n'
+        '    y = x + 1\n'
+        '    return y\n'
+    )
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "explore", "documented", str(root))
+    assert "return y" in out
+
+
 def test_config_include_overrides_gitignore(tmp_path, monkeypatch, capsys):
     import subprocess
     monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
