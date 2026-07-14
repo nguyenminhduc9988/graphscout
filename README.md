@@ -50,6 +50,29 @@ One `build` per repo; after that, every query auto-refreshes only the files that
 
 <sub>Formerly published as <code>codegraph-kit</code> (repo <code>codegraph</code>) — renamed to avoid confusion with the unrelated, much larger <a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a>. Same cache format (<code>$CODEGRAPH_CACHE</code> still works). See <a href="#-honest-comparison-vs-colbymchenrycodegraph">Honest comparison</a> for exactly where each tool wins.</sub>
 
+## 🆕 New in 0.6.2
+
+CI-only bugfix, invisible locally: graphify's own on-disk extraction cache
+defaults to the process's current working directory when graphscout doesn't
+pin one, which every graphscout invocation shares regardless of which repo
+it's analyzing. Two repos containing a byte-identical file at the same
+relative path (any two checkouts with a matching boilerplate `__init__.py`,
+license header, or generated stub — or two of this repo's own tests reusing
+the same fixture content) could collide there, and graphify would hand back
+a cached node/edge set whose **id** was flattened from whichever repo
+populated that cache entry first (`source_file` gets re-anchored on load;
+`id` did not). Fixed by chdir'ing into a repo-scoped scratch directory for
+the duration of each extraction call, so graphify's own cache-root inference
+naturally scopes to this repo instead of the shared CWD — confirmed against
+graphify that only an exactly-matching cache root keeps its ids unflattened
+and its cross-file import/call edges intact; any other explicit `cache_root`
+(even a subdirectory) silently drops them. Root-caused by reproducing the
+failure on real GitHub Actions runs via a throwaway debug PR after it proved
+un-reproducible across three different local/Docker environments — the
+leaked id happened to contain the substring `pytest-of-runner` (GitHub
+Actions' runner username), which coincidentally satisfied one test's own
+query and masked itself as the "no symbol matching" branch never firing.
+
 ## 🆕 New in 0.6.1
 
 `routes` now detects the same 17 named framework families as codegraph's
@@ -456,7 +479,7 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 
 ## ⚖️ Honest comparison vs. colbymchenry/codegraph
 
-[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) is a funded, actively-developed product — 59k+ stars, a Node/TypeScript codebase with bundled runtime, measured cross-file coverage per language, and real published agent benchmarks. `graphscout` is a small, single-purpose Python tool. As of this comparison (0.6.1, checked against codegraph's own README):
+[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) is a funded, actively-developed product — 59k+ stars, a Node/TypeScript codebase with bundled runtime, measured cross-file coverage per language, and real published agent benchmarks. `graphscout` is a small, single-purpose Python tool. As of this comparison (0.6.2, checked against codegraph's own README):
 
 | | graphscout | colbymchenry/codegraph |
 |---|:---:|:---:|
