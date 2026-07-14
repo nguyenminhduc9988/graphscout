@@ -50,6 +50,18 @@ One `build` per repo; after that, every query auto-refreshes only the files that
 
 <sub>Formerly published as <code>codegraph-kit</code> (repo <code>codegraph</code>) — renamed to avoid confusion with the unrelated, much larger <a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a>. Same cache format (<code>$CODEGRAPH_CACHE</code> still works). See <a href="#-honest-comparison-vs-colbymchenrycodegraph">Honest comparison</a> for exactly where each tool wins.</sub>
 
+## 🆕 New in 0.6.1
+
+`routes` now detects the same 17 named framework families as codegraph's
+published list, up from 9: added Play, Drupal (`*.routing.yml` + `hook_*` in
+`.module`/`.theme`/`.install`/`.inc`), Vapor, Axum, React Router, SvelteKit,
+Vue Router/Nuxt, and Astro; split the old combined "express/gin" label into
+`express` and `gin/chi/gorilla/mux` (plus gorilla's `HandleFunc` shape), and
+folded Rocket into the existing actix attribute-macro pattern (identical
+`#[get("/x")]` shape, matching codegraph's own Axum/actix/Rocket grouping).
+File-based routers (SvelteKit/Vue-Nuxt/Astro) resolve the route straight from
+the file's path — no line to point at, so those rows show `:1`.
+
 ## 🆕 New in 0.6.0
 
 Six more graph-backed capabilities — answers neither codegraph gives, each built
@@ -444,7 +456,7 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 
 ## ⚖️ Honest comparison vs. colbymchenry/codegraph
 
-[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) is a funded, actively-developed product — 59k+ stars, a Node/TypeScript codebase with bundled runtime, measured cross-file coverage per language, and real published agent benchmarks. `graphscout` is a small, single-purpose Python tool. As of this comparison (0.6.0, checked against codegraph's own README):
+[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) is a funded, actively-developed product — 59k+ stars, a Node/TypeScript codebase with bundled runtime, measured cross-file coverage per language, and real published agent benchmarks. `graphscout` is a small, single-purpose Python tool. As of this comparison (0.6.1, checked against codegraph's own README):
 
 | | graphscout | colbymchenry/codegraph |
 |---|:---:|:---:|
@@ -453,7 +465,7 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 | Multi-hop impact / blast radius | ✅ | ✅ |
 | Test-impact from a diff | ✅ `affected` | ✅ `affected` |
 | `.gitignore`-aware indexing | ✅ | ✅ |
-| Framework route detection | ✅ 10 frameworks | ✅ **17 frameworks** |
+| Framework route detection | ✅ same 17 named families | ✅ 17 frameworks |
 | Native OS file-watch daemon | ✅ `daemon start/stop/status` | ✅ built-in |
 | JSON output | ✅ `--json` on every query | ✅ |
 | **Symbol-level git diff** (added/removed/modified *defs*, not lines) | ✅ `diff` | not in codegraph's published tool list |
@@ -466,24 +478,60 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 | **Token-cost estimate** per symbol (`tokens`) | ✅ | not in codegraph's published tool list |
 | **Module-dependency viz** (`viz --kind=imports`) | ✅ | not in codegraph's published tool list |
 | Languages with full def/call/import extraction | 16/20 sampled, reproducible (`scripts/lang_coverage.py`) | **31**, per codegraph's docs |
-| Cross-language bridging (Swift↔ObjC, React Native, Expo) | ❌ | ✅ |
+| Cross-language bridging (Swift↔ObjC, React Native, Expo) | ❌ (not attempted — see note) | ✅, validated against 15 real repos |
 | Indexable extensions (incl. outline-only) | 92, sourced live from graphify | not published |
 | Runtime | pure Python (no bundled runtime) | bundled Node.js runtime |
 | Telemetry | **none, ever** | opt-out, anonymized |
-| Published agent benchmarks | offline call/payload proxy (below) | live Claude-Code trials across 7 repos |
+| Published agent benchmarks | offline call/payload proxy (below) | live Claude-Code trials, 7 repos, median-of-4, full methodology disclosed |
 | License | MIT | MIT |
 
-Where graphscout still trails: raw language count (codegraph's own extractor covers
-more languages end-to-end) and cross-language bridging (Swift↔ObjC, React Native,
-Expo) — both real, unclosed gaps, not sandbagged for effect. Where it's now ahead:
-**nine query types** (`diff`, `orphans`, `hotspots`, `metrics`, `dupes`, `recent`,
-`why`, `tokens`, `viz --kind=imports`) that aren't in codegraph's published tool
-list, at a fraction of the code size, with zero telemetry and no bundled runtime.
-If you need 31-language coverage or cross-language bridging, use codegraph. If you
-want a small, auditable, telemetry-free tool that also answers "what actually
-changed", "what's dead", "what should I refactor first", "how complex is this",
-"where's the copy-paste", and "is it worth reading this whole function" — that's
-what `graphscout` adds.
+**Framework route detection**, closed in 0.6.1: graphscout now detects the same
+17 named framework families codegraph lists — Django, Flask, FastAPI, Express,
+NestJS, Laravel, Drupal, Rails, Spring, Play, Gin/chi/gorilla/mux, Axum/actix/
+Rocket, ASP.NET, Vapor, React Router, SvelteKit, Vue Router/Nuxt, and Astro.
+Named-family parity, not necessarily per-shape parity — codegraph documents
+finer-grained recognized shapes per framework (e.g. NestJS GraphQL `@Resolver`/
+`@Query`/`@Mutation`, Django CBV `.as_view()`, Drupal entity handlers) that
+graphscout's simpler regexes don't all cover; verify with `--json` on a route-
+heavy repo before relying on exhaustive coverage.
+
+**Where graphscout still, honestly, trails — two real gaps, not sandbagged for
+effect:**
+- **Raw language count.** codegraph bundles its own tree-sitter extractor
+  covering 30+ languages, including several graphify doesn't touch at all
+  (ArkTS, Metal, CUDA, Liquid, Delphi, R, Luau, CFML, COBOL, VB.NET, Erlang,
+  Solidity, Terraform, Nix). graphscout has no parser of its own — every
+  language it indexes comes from the third-party `graphifyy` dependency, so
+  this gap is structural: closing it means either `graphifyy` adding those
+  grammars upstream, or graphscout vendoring its own tree-sitter grammars (a
+  project on the scale of codegraph's own extractor, not a task for a small
+  wrapper tool). Not being worked on for 0.7; noted here so the comparison
+  stays honest rather than implying it's temporary.
+- **Cross-language bridging** (Swift↔ObjC, React Native legacy/TurboModule
+  bridges, Expo Modules, Fabric/Paper view managers). codegraph's version is
+  validated against 15 real repos across small/medium/large per bridge type —
+  a multi-month engineering effort with its own name-resolution heuristics per
+  boundary. Deliberately **not attempted** here: a shallow same-named version
+  built in an afternoon and marketed as parity would be a worse outcome than
+  admitting the gap. If this matters for your use case, use codegraph.
+
+Where graphscout is now ahead: **framework route parity** (17 named families,
+closed in 0.6.1) plus **nine query types** (`diff`, `orphans`, `hotspots`,
+`metrics`, `dupes`, `recent`, `why`, `tokens`, `viz --kind=imports`) that
+aren't in codegraph's published tool list, at a fraction of the code size,
+with zero telemetry and no bundled runtime. If you need 31-language coverage
+or cross-language bridging, use codegraph. If you want a small, auditable,
+telemetry-free tool that also answers "what actually changed", "what's dead",
+"what should I refactor first", "how complex is this", "where's the
+copy-paste", and "is it worth reading this whole function" — that's what
+`graphscout` adds.
+
+**On the benchmark gap:** codegraph's number (58% fewer tool calls, 22%
+faster, near-zero file reads, median of 4 headless Claude runs across 7 real
+repos, full methodology published) is real and rigorous. Matching it properly
+means running many headless agent trials against cloned repos — real API
+cost, not a code change — so it's scoped as a follow-up decision rather than
+something spent silently; ask if you want a scaled-down version run.
 
 ## 📈 Star history
 

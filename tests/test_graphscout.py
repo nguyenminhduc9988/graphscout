@@ -448,6 +448,70 @@ def test_routes_no_matches_says_so(repo, capsys):
     assert "no routes detected" in out
 
 
+def test_routes_detects_expanded_framework_set(tmp_path, monkeypatch, capsys):
+    """Regression coverage for the frameworks added to close the gap against
+    codegraph's 17-row table: Play, Drupal (routing.yml + hooks), Axum,
+    actix/Rocket, Gin HandleFunc, Vapor, React Router, and the file-based
+    routers (SvelteKit/Vue-Nuxt/Astro)."""
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    (root / ".git").mkdir(parents=True)
+
+    (root / "conf").mkdir()
+    (root / "conf" / "routes").write_text("GET     /users/:id    controllers.Users.show(id: Long)\n")
+
+    (root / "mymodule").mkdir()
+    (root / "mymodule" / "mymodule.routing.yml").write_text(
+        "mymodule.settings_form:\n  path: '/admin/config/mymodule'\n"
+    )
+    (root / "mymodule" / "mymodule.module").write_text(
+        "<?php\nfunction mymodule_menu() {\n  return [];\n}\n"
+    )
+
+    (root / "src").mkdir()
+    (root / "src" / "main.rs").write_text(
+        'let app = Router::new().route("/hello", get(hello_handler));\n'
+        '#[get("/rocket-style")]\nfn r() {}\n'
+    )
+
+    (root / "web").mkdir()
+    (root / "web" / "router.go").write_text(
+        'router.HandleFunc("/mux-style", handler)\n'
+    )
+
+    (root / "Sources").mkdir()
+    (root / "Sources" / "routes.swift").write_text(
+        'app.get("vapor/hello") { req in "hi" }\n'
+    )
+
+    (root / "web2").mkdir()
+    (root / "web2" / "App.jsx").write_text(
+        'function App() { return <Route path="/react-route" component={Home} />; }\n'
+    )
+
+    (root / "pages").mkdir()
+    (root / "pages" / "about.vue").write_text("<template>hi</template>\n")
+
+    (root / "routes" / "blog" / "[slug]").mkdir(parents=True)
+    (root / "routes" / "blog" / "[slug]" / "+page.server.ts").write_text("export function load() {}\n")
+
+    (root / "src" / "pages").mkdir(parents=True)
+    (root / "src" / "pages" / "[slug].astro").write_text("---\n---\n<h1>hi</h1>\n")
+
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "routes", str(root))
+
+    assert "[play]" in out and "/users/:id" in out
+    assert "[drupal]" in out and "/admin/config/mymodule" in out and "mymodule_menu" in out
+    assert "[axum/actix/rocket]" in out and "/hello" in out and "/rocket-style" in out
+    assert "[gin/chi/gorilla/mux]" in out and "/mux-style" in out
+    assert "[vapor]" in out and "vapor/hello" in out
+    assert "[react-router]" in out and "/react-route" in out
+    assert "[vue-router/nuxt]" in out and "/about" in out
+    assert "[sveltekit]" in out and "/blog/[slug]" in out
+    assert "[astro]" in out and "/[slug]" in out
+
+
 def test_config_include_overrides_gitignore(tmp_path, monkeypatch, capsys):
     import subprocess
     monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
