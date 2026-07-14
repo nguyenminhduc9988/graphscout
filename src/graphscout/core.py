@@ -15,10 +15,11 @@ import sys
 import time
 from pathlib import Path
 
-# Every extension graphify can walk into a real language extractor (defs, calls,
-# imports) — not just files it can list. Kept as a static set rather than
-# importing graphify.detect at module scope, since that's an internal API.
-CODE_EXTS = {
+# Static fallback, matching graphify 0.9.x, for the rare case its internal
+# detect module is unavailable or renamed. Kept purely as a floor — the real
+# list below is sourced live from graphify so new language support it adds
+# shows up here with no graphscout release needed.
+_FALLBACK_CODE_EXTS = {
     ".py", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".ejs", ".ets", ".vue", ".svelte", ".astro",
     ".go", ".rs", ".zig", ".java", ".groovy", ".kt", ".kts", ".scala",
     ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cs", ".razor", ".cshtml",
@@ -28,6 +29,33 @@ CODE_EXTS = {
     ".sh", ".bash", ".ps1", ".hcl", ".tf", ".tfvars",
     ".f", ".f90", ".f95", ".f03", ".f08",
 }
+
+
+def _code_exts() -> set:
+    """Every extension graphify can walk into a real language extractor
+    (defs, calls, imports) — not just files it can list. Sourced live from
+    graphify.detect.CODE_EXTENSIONS (an internal API, hence the try/except)
+    so graphscout's language coverage tracks graphify's automatically instead
+    of drifting behind a hand-copied list; falls back to a frozen snapshot if
+    that module ever moves or the import fails.
+
+    `.json` is deliberately dropped from graphify's set: graphify treats it as
+    code because *some* JSON files are manifests worth a node (package.json,
+    MCP configs), but most are plain data that silently extracts to zero
+    nodes anyway — walking every fixture/locale/lockfile in a JSON-heavy repo
+    would burn `MAX_FILES` budget on noise. Opt a specific project back in
+    via `graphscout.json`'s `extensions` config (`{"extensions": {".json":
+    "json"}}`), which already exists for exactly this kind of override."""
+    try:
+        from graphify.detect import CODE_EXTENSIONS
+        exts = set(CODE_EXTENSIONS) | _FALLBACK_CODE_EXTS
+    except Exception:
+        exts = set(_FALLBACK_CODE_EXTS)
+    exts.discard(".json")
+    return exts
+
+
+CODE_EXTS = _code_exts()
 SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build",
              ".next", "target", ".cache", "vendor", "site-packages", ".tox", "coverage"}
 MAX_FILES = 5000
@@ -169,11 +197,28 @@ def save(root: Path, graph, idx):
     rf.write_text(json.dumps(roots, indent=1))
 
 
+def _idflatten(relpath: str) -> str:
+    """Mimic graphify's id derivation for a root-relative path:
+    'src/graphscout/routes.py' -> 'src_graphscout_routes' (separators to '_',
+    extension stripped). Used only to disambiguate same-basename files when
+    recovering from a basename-only source_file leak (see extract_files)."""
+    return relpath.replace("/", "_").replace("\\", "_").rsplit(".", 1)[0]
+
+
 def extract_files(paths, root):
     """Extract and normalize source_file to root-relative. graphify stores paths
     relative to the common ancestor of the batch (basename for single/same-dir
     batches), so we resolve via that ancestor. Unattributable ('' semantic) nodes
-    are dropped — they'd break incremental dedup."""
+    are dropped — they'd break incremental dedup.
+
+    A second graphify quirk is patched here: in parallel batches it occasionally
+    emits a *basename-only* source_file for a handful of files (a sharding artefact
+    that also flattens that file's absolute path into its nodes' ids). Left alone,
+    `(common / 'routes.py')` resolves to a root-level path that doesn't exist, so
+    the file's nodes/edges get mis-filed as 'routes.py' instead of
+    'src/graphscout/routes.py' — silently corrupting file/deps/affected/orphans for
+    that file. We recover the real file by matching the basename against the known
+    input set, disambiguating collisions via the node id (which encodes the path)."""
     from graphify.extract import extract
     ok_nodes, ok_edges, failed = [], [], []
     resolved = [p.resolve() for p in paths]
@@ -183,22 +228,45 @@ def extract_files(paths, root):
     if common.is_file():
         common = common.parent
 
-    def norm(sf):
+    # Known root-rel input paths + a basename -> [root-rel] index, to recover
+    # basename-only leaks and to fast-path the common case without a stat().
+    known_rel, rel_by_base = set(), {}
+    for p in resolved:
+        try:
+            r_ = str(p.relative_to(root))
+            known_rel.add(r_)
+            rel_by_base.setdefault(p.name, []).append(r_)
+        except ValueError:
+            pass
+
+    def norm(sf, owner_id=""):
         if not sf:
             return None
         try:
-            return str((common / sf).resolve().relative_to(root))
+            rel = str((common / sf).resolve().relative_to(root))
         except ValueError:
-            return None
+            rel = None
+        if rel in known_rel:  # graphify returned a real root-relative path
+            return rel
+        # basename-only leak (parallel-shard quirk): recover via known inputs
+        cands = rel_by_base.get(Path(sf).name)
+        if not cands:
+            return rel
+        if len(cands) == 1:
+            return cands[0]
+        for c in cands:  # several files share the basename — let the id decide
+            if _idflatten(c) in owner_id:
+                return c
+        return rel  # ambiguous and unresolvable — leave rather than guess
 
     def collect(r):
         for n in r["nodes"]:
-            sf = norm(n.get("source_file", ""))
+            sf = norm(n.get("source_file", ""), n.get("id", ""))
             if sf:
                 n["source_file"] = sf
                 ok_nodes.append(n)
         for e in r["edges"]:
-            sf = norm(e.get("source_file", ""))
+            sf = norm(e.get("source_file", ""), e.get("source", ""))
             if sf:
                 e["source_file"] = sf
                 ok_edges.append(e)
@@ -268,6 +336,29 @@ def touch(target: Path, root: Path):
     else:
         idx["mtimes"].pop(f, None)
     save(root, {"nodes": nodes, "edges": edges}, idx)
+
+
+def registered_roots() -> list:
+    """Every repo ever built, newest first, with its graph's current size —
+    reads roots.json plus each repo's own index.json, not a live rescan.
+    A root present in roots.json but missing its graph.json (cache cleared,
+    dir moved) is still listed, flagged unbuilt."""
+    rf = roots_file()
+    try:
+        roots = json.loads(rf.read_text()) if rf.exists() else {}
+    except (json.JSONDecodeError, OSError):
+        return []
+    out = []
+    for path_str, built_at in roots.items():
+        graph, idx = load(Path(path_str))
+        out.append({
+            "root": path_str, "registered_at": built_at,
+            "built": graph is not None,
+            "nodes": len(graph["nodes"]) if graph else 0,
+            "edges": len(graph["edges"]) if graph else 0,
+        })
+    out.sort(key=lambda r: r["registered_at"], reverse=True)
+    return out
 
 
 def watch(root: Path, interval: float = 1.5):

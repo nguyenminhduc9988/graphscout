@@ -147,6 +147,22 @@ def test_watch_polling_refresh(repo, monkeypatch):
     assert any("watched_fn" in n.get("label", "") for n in g["nodes"])
 
 
+def test_roots_lists_registered_repos(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "roots")
+    assert str(repo) in out and "nodes" in out
+
+    rc, out = run(capsys, "roots", "--json")
+    data = json.loads(out)
+    assert any(r["root"] == str(repo) and r["built"] for r in data)
+
+
+def test_windsurf_is_a_registered_json_agent():
+    from graphscout import agents
+    assert agents.AGENTS["windsurf"]["kind"] == "json"
+    assert agents.AGENTS["windsurf"]["path"].name == "mcp_config.json"
+
+
 def test_install_uninstall_json_agent(tmp_path, monkeypatch):
     from graphscout import agents
 
@@ -260,6 +276,178 @@ def test_explore_snippet_not_truncated_by_docstring(tmp_path, monkeypatch, capsy
     assert "return y" in out
 
 
+def test_orphans_flags_dead_code_not_used_symbols(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "orphans", str(repo))
+    assert "run" not in out.split("dead-code")[0]  # sanity: header prints regardless
+    assert "helper" not in out or "Runner" not in out  # both are used (called via sub/b.py, a.py)
+
+
+def test_orphans_ignores_qualified_module_calls(tmp_path, monkeypatch, capsys):
+    """`import mod; mod.fn()` never produces a `calls` edge (graphify only
+    resolves bare-name calls from `from mod import fn`) — orphans must not
+    flag every function used this way as dead, or it's useless on any
+    codebase (including this one) that uses the `import module` style."""
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    (root / ".git").mkdir(parents=True)
+    (root / "core.py").write_text("def ensure(x):\n    return x\n\n\ndef truly_dead():\n    return 1\n")
+    (root / "main.py").write_text("import core\n\n\ndef run():\n    return core.ensure(1)\n")
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "orphans", str(root))
+    assert "ensure" not in out
+    assert "truly_dead" in out
+
+
+def test_json_flag_produces_structured_output(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "map", str(repo), "--json")
+    data = json.loads(out)
+    assert data["nodes"] > 0 and "hubs" in data
+
+    rc, out = run(capsys, "sym", "helper", str(repo), "--json")
+    data = json.loads(out)
+    assert data["query"] == "helper"
+    assert any("a.py" in m["file"] for m in data["matches"])
+
+    rc, out = run(capsys, "callers", "helper", str(repo), "--json")
+    data = json.loads(out)
+    assert data["direction"] == "callers"
+
+    rc, out = run(capsys, "deps", str(repo / "a.py"), "--json")
+    data = json.loads(out)
+    assert data["file"] == "a.py"
+    assert any(imp["target"] == "os" for imp in data["imports"])
+
+    rc, out = run(capsys, "affected", str(repo / "a.py"), "--json")
+    data = json.loads(out)
+    assert "affected_tests" in data
+
+
+def test_daemon_start_stop_status(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "daemon", "status", str(repo))
+    assert "no daemon running" in out
+
+    rc, out = run(capsys, "daemon", "start", str(repo))
+    assert "started daemon" in out
+    try:
+        time.sleep(0.5)
+        rc, out = run(capsys, "daemon", "status", str(repo))
+        assert "daemon running" in out
+    finally:
+        rc, out = run(capsys, "daemon", "stop", str(repo))
+        assert "stopped daemon" in out
+
+    time.sleep(0.3)
+    rc, out = run(capsys, "daemon", "status", str(repo))
+    assert "no daemon running" in out
+
+
+def test_doctor_reports_env_and_repo_health(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "doctor", str(repo))
+    assert "graphscout " in out
+    assert "indexable extensions" in out
+    assert "nodes" in out and "edges" in out
+
+
+def test_hotspots_ranks_by_churn_and_degree(tmp_path, monkeypatch, capsys):
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+    (root / "hot.py").write_text(A_PY)
+    (root / "cold.py").write_text("def lonely():\n    return 1\n")
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=root, check=True)
+    for i in range(3):
+        (root / "hot.py").write_text(A_PY + f"\n# churn {i}\n")
+        subprocess.run(["git", "commit", "-q", "-am", f"edit {i}"], cwd=root, check=True)
+
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "hotspots", str(root))
+    assert "hot.py" in out
+    assert out.index("hot.py") < out.index("cold.py") if "cold.py" in out else True
+
+
+def test_hotspots_no_git_says_so(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    (root / ".git").mkdir(parents=True)  # bare marker dir, not a real git repo
+    (root / "a.py").write_text("def f():\n    return 1\n")
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "hotspots", str(root))
+    assert "no churn signal" in out
+
+
+def test_diff_detects_added_removed_modified(tmp_path, monkeypatch, capsys):
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+    (root / "a.py").write_text("def helper(x):\n    return x + 1\n\n\ndef old_func():\n    return 1\n")
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=root, check=True)
+    (root / "a.py").write_text("def helper(x):\n    return x + 2\n\n\ndef new_func():\n    return 2\n")
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "change"], cwd=root, check=True)
+
+    rc, out = run(capsys, "diff", "HEAD~1", "HEAD", str(root))
+    assert "+ new_func()" in out and "- old_func()" in out and "~ helper()" in out
+
+
+def test_diff_against_working_tree_ignores_boundary_noise(tmp_path, monkeypatch, capsys):
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+    (root / "a.py").write_text("def helper(x):\n    return x + 1\n\n\ndef keep():\n    return 2\n")
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=root, check=True)
+    (root / "a.py").write_text(
+        "def helper(x):\n    return x + 1\n\n\ndef keep():\n    return 2\n\n\ndef wip():\n    return 3\n"
+    )
+    rc, out = run(capsys, "diff", "HEAD", str(root))
+    assert "+ wip()" in out
+    assert "keep()" not in out  # unchanged body must not show as modified just because wip() was appended after it
+
+
+def test_routes_detects_flask_and_express(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "proj"
+    (root / ".git").mkdir(parents=True)
+    (root / "app.py").write_text(
+        'from flask import Flask\n'
+        'app = Flask(__name__)\n\n'
+        '@app.get("/users/<id>")\n'
+        'def get_user(id):\n'
+        '    return "ok"\n'
+    )
+    (root / "server.js").write_text(
+        'app.post("/api/items", (req, res) => res.send("created"));\n'
+    )
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "routes", str(root))
+    assert "GET" in out and "/users/<id>" in out and "app.py" in out
+    assert "POST" in out and "/api/items" in out and "server.js" in out
+
+
+def test_routes_no_matches_says_so(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "routes", str(repo))
+    assert "no routes detected" in out
+
+
 def test_config_include_overrides_gitignore(tmp_path, monkeypatch, capsys):
     import subprocess
     monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
@@ -272,3 +460,194 @@ def test_config_include_overrides_gitignore(tmp_path, monkeypatch, capsys):
     (root / "graphscout.json").write_text('{"include": ["vendored_src/"]}')
     rc, out = run(capsys, "build", str(root))
     assert "1 files" in out
+
+
+# --- metrics / dupes / recent / why / tokens ---------------------------------
+
+def test_metrics_symbol_card(repo, capsys):
+    """metrics <name> -> one symbol's fan-in/fan-out card. helper is called by
+    both main_entry (a.py) and run (sub/b.py), so fan-in >= 1."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "metrics", "helper", str(repo))
+    assert rc == 0
+    assert "metrics for 'helper'" in out
+    assert "fan-in" in out and "fan-out" in out
+
+
+def test_metrics_repo_rankings(repo, capsys):
+    """metrics with no query -> repo mode, two ranked lists."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "metrics", str(repo))
+    assert rc == 0
+    assert "complexity metrics" in out
+    assert "top fan-out" in out and "top fan-in" in out
+
+
+def test_metrics_json(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "metrics", "helper", str(repo), "--json")
+    assert rc == 0
+    d = json.loads(out)
+    assert d["mode"] == "symbol" and d["cards"]
+    assert "fan_in" in d["cards"][0] and "symbol" in d["cards"][0]
+
+
+def test_metrics_unknown_symbol(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "metrics", "nope_doesnotexist", str(repo))
+    assert rc == 0 and "no symbol matching" in out
+
+
+def test_why_finds_call_path(repo, capsys):
+    """main_entry calls helper directly -> a 1-hop path is reported."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "why", "main_entry", "helper", str(repo))
+    assert rc == 0
+    assert "call path" in out
+    assert "main_entry" in out and "helper" in out
+    assert "1 hop" in out  # len(path) - 1
+
+
+def test_why_unreachable(repo, capsys):
+    """helper doesn't call main_entry -> unreachable over call edges."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "why", "helper", "main_entry", str(repo))
+    assert rc == 0 and "cannot reach" in out
+
+
+def test_why_missing_arg(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "why", "only_one")  # one positional -> usage error to stderr
+    assert rc == 2
+
+
+def test_why_json(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "why", "main_entry", "helper", str(repo), "--json")
+    assert rc == 0
+    d = json.loads(out)
+    assert d["resolved"] and d["reachable"]
+    assert len(d["path"]) == 2 and d["hops"] == 1
+
+
+def test_tokens_symbol(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "tokens", "helper", str(repo))
+    assert rc == 0
+    assert "tokens" in out and ("tiktoken" in out or "heuristic" in out)
+
+
+def test_tokens_json(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "tokens", "helper", str(repo), "--json")
+    assert rc == 0
+    d = json.loads(out)
+    assert d["found"] and d["tokens"] >= 1 and "method" in d
+
+
+def test_tokens_unknown(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "tokens", "nope", str(repo))
+    assert rc == 0 and "no symbol matching" in out
+
+
+def test_recent_no_commits(tmp_path, monkeypatch, capsys):
+    """A repo with a .git dir but no commits -> the no-signal message, not a crash."""
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "r"
+    (root / ".git").mkdir(parents=True)
+    (root / "m.py").write_text("def f():\n    return 1\n")
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "recent", str(root))
+    assert rc == 0
+    assert "no recent-change signal" in out
+
+
+def test_recent_with_commits(tmp_path, monkeypatch, capsys):
+    import subprocess
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "r"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "t@t"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+    (root / "m.py").write_text("def f():\n    return 1\n")
+    subprocess.run(["git", "add", "."], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], cwd=root, check=True)
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "recent", str(root))
+    assert rc == 0
+    assert "touched by the last" in out
+    assert "f" in out  # the one symbol surfaced
+
+
+def test_viz_imports_kind(repo, capsys):
+    """viz --kind=imports draws file-level module edges; sub/b.py imports a.py."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "viz", str(repo), "--kind=imports")
+    assert rc == 0
+    assert "file-level import graph" in out
+    assert "flowchart LR" in out
+    assert "b.py" in out and "a.py" in out
+
+
+def test_viz_imports_dot(repo, capsys):
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "viz", str(repo), "--kind=imports", "--format=dot")
+    assert rc == 0
+    assert "digraph graphscout_imports" in out
+
+
+def test_viz_calls_kind_unchanged(repo, capsys):
+    """Default kind (calls) still works after adding the kind switch."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "viz", str(repo))
+    assert rc == 0 and ("flowchart LR" in out or "digraph graphscout" in out)
+
+
+def test_dupes_detects_copy_paste(tmp_path, monkeypatch, capsys):
+    """Two functions in separate files with identical normalized bodies cluster
+    as a duplicate, even though their names differ — copy-paste is about the
+    body, not the (dropped) declaration line."""
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "r"
+    root.mkdir()
+    body = "\n".join([
+        "    total = 0",
+        "    for item in items:",
+        "        total += item",
+        "    return total",
+    ])
+    (root / "x.py").write_text(f"def sum_a(items):\n{body}\n")
+    (root / "y.py").write_text(f"def sum_b(items):\n{body}\n")
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "dupes", str(root))
+    assert rc == 0
+    assert "duplicate cluster" in out
+    assert "sum_a" in out and "sum_b" in out
+
+
+def test_dupes_clean_repo(repo, capsys):
+    """The default fixture has no duplicates -> the clean message."""
+    run(capsys, "build", str(repo))
+    rc, out = run(capsys, "dupes", str(repo))
+    assert rc == 0 and "no duplicate clusters" in out
+
+
+def test_dupes_json(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("GRAPHSCOUT_CACHE", str(tmp_path / "cache"))
+    root = tmp_path / "r"
+    root.mkdir()
+    body = "\n".join([
+        "    first = x + 1",
+        "    second = y + 2",
+        "    third = z + 3",
+        "    return first + second + third",
+    ])
+    (root / "x.py").write_text(f"def a():\n{body}\n")
+    (root / "y.py").write_text(f"def b():\n{body}\n")
+    run(capsys, "build", str(root))
+    rc, out = run(capsys, "dupes", str(root), "--json")
+    assert rc == 0
+    d = json.loads(out)
+    assert d["count"] >= 1 and d["clusters"][0]

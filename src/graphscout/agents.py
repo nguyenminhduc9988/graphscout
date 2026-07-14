@@ -43,6 +43,10 @@ AGENTS = {
         "kind": "json",
         "path": Path.home() / ".cursor" / "mcp.json",
     },
+    "windsurf": {
+        "kind": "json",
+        "path": Path.home() / ".codeium" / "windsurf" / "mcp_config.json",
+    },
 }
 
 
