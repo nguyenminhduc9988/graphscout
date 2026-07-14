@@ -12,8 +12,11 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
+
+_CHDIR_LOCK = threading.Lock()
 
 # Static fallback, matching graphify 0.9.x, for the rare case its internal
 # detect module is unavailable or renamed. Kept purely as a floor — the real
@@ -271,15 +274,44 @@ def extract_files(paths, root):
                 e["source_file"] = sf
                 ok_edges.append(e)
 
-    try:
-        collect(extract(paths=resolved, parallel=len(resolved) > 4))
-    except Exception:
-        for p in resolved:
-            common = p.parent
+    # graphify's own on-disk extraction cache is keyed by content-hash + path
+    # *relative to its inferred root*, not by that root's identity — so with
+    # no cache_root pinned it defaults to graphify's own CWD, which every
+    # graphscout invocation shares regardless of which repo it's analyzing.
+    # Two different repos (or two pytest tmp dirs) that happen to contain a
+    # byte-identical file at the same relative path then collide there, and
+    # graphify hands back a *cached* node/edge set whose ids were flattened
+    # from whichever repo populated that cache entry first (source_file gets
+    # re-anchored to the current root on load, but id does not).
+    #
+    # Passing cache_root explicitly would fix the sharing, but graphify only
+    # emits clean (unflattened) ids when cache_root resolves to the same path
+    # it infers as the batch's own root — any other value (even a subdirectory
+    # of it) makes it flatten ids *and* drop resolved cross-file import/call
+    # edges (verified empirically; not documented). So instead of passing
+    # cache_root, chdir into a repo-scoped scratch dir for the call: graphify
+    # then infers cache_root == cwd == that scratch dir on its own, which
+    # keeps ids clean while scoping the cache to this repo and staying out of
+    # both the analyzed tree and any shared CWD. Locked since chdir is
+    # process-global and extract_files can run from multiple threads (MCP
+    # server, daemon).
+    scratch = repo_key(root) / "graphify_cache_cwd"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with _CHDIR_LOCK:
+        cwd = os.getcwd()
+        try:
+            os.chdir(scratch)
             try:
-                collect(extract(paths=[p], parallel=False))
+                collect(extract(paths=resolved, parallel=len(resolved) > 4))
             except Exception:
-                failed.append(str(p))
+                for p in resolved:
+                    common = p.parent
+                    try:
+                        collect(extract(paths=[p], parallel=False))
+                    except Exception:
+                        failed.append(str(p))
+        finally:
+            os.chdir(cwd)
     return ok_nodes, ok_edges, failed
 
 
