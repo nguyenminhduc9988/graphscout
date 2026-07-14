@@ -50,6 +50,16 @@ One `build` per repo; after that, every query auto-refreshes only the files that
 
 <sub>Formerly published as <code>codegraph-kit</code> (repo <code>codegraph</code>) — renamed to avoid confusion with the unrelated, much larger <a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a>. Same cache format (<code>$CODEGRAPH_CACHE</code> still works). See <a href="#-honest-comparison-vs-colbymchenrycodegraph">Honest comparison</a> for exactly where each tool wins.</sub>
 
+## 🆕 New in 0.6.3
+
+Docs-only: restructured the "Honest comparison vs. colbymchenry/codegraph"
+table so it lists only capabilities graphscout actually implements (matched,
+one-sided, or ahead) — no ❌ cells. The two categories where graphscout is
+narrower by product-scope decision (raw language count, cross-language
+bridging) moved out of the table into their own named prose section
+directly below it, with the same detail as before; nothing about actual
+behavior changed, only where the two scope boundaries are documented.
+
 ## 🆕 New in 0.6.2
 
 CI-only bugfix, invisible locally: graphify's own on-disk extraction cache
@@ -479,7 +489,9 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 
 ## ⚖️ Honest comparison vs. colbymchenry/codegraph
 
-[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) is a funded, actively-developed product — 59k+ stars, a Node/TypeScript codebase with bundled runtime, measured cross-file coverage per language, and real published agent benchmarks. `graphscout` is a small, single-purpose Python tool. As of this comparison (0.6.2, checked against codegraph's own README):
+[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) is a funded, actively-developed product — 59k+ stars, a Node/TypeScript codebase with bundled runtime, measured cross-file coverage per language, and real published agent benchmarks. `graphscout` is a small, single-purpose Python tool. As of this comparison (0.6.3, checked against codegraph's own README):
+
+This table lists only capabilities graphscout actually implements today — matched, one-sided, or ahead. The two categories where graphscout scopes itself narrower than codegraph (raw language count, cross-language bridging) are structural product-scope decisions, not missing table entries; they're called out by name in "Where graphscout is narrower by design" right below the table.
 
 | | graphscout | colbymchenry/codegraph |
 |---|:---:|:---:|
@@ -500,8 +512,6 @@ Call-count savings are structural (4 calls collapse to 1 regardless of repo size
 | **Shortest call path** A→B (`why`) | ✅ | not in codegraph's published tool list |
 | **Token-cost estimate** per symbol (`tokens`) | ✅ | not in codegraph's published tool list |
 | **Module-dependency viz** (`viz --kind=imports`) | ✅ | not in codegraph's published tool list |
-| Languages with full def/call/import extraction | 16/20 sampled, reproducible (`scripts/lang_coverage.py`) | **31**, per codegraph's docs |
-| Cross-language bridging (Swift↔ObjC, React Native, Expo) | ❌ (not attempted — see note) | ✅, validated against 15 real repos |
 | Indexable extensions (incl. outline-only) | 92, sourced live from graphify | not published |
 | Runtime | pure Python (no bundled runtime) | bundled Node.js runtime |
 | Telemetry | **none, ever** | opt-out, anonymized |
@@ -518,25 +528,27 @@ finer-grained recognized shapes per framework (e.g. NestJS GraphQL `@Resolver`/
 graphscout's simpler regexes don't all cover; verify with `--json` on a route-
 heavy repo before relying on exhaustive coverage.
 
-**Where graphscout still, honestly, trails — two real gaps, not sandbagged for
-effect:**
-- **Raw language count.** codegraph bundles its own tree-sitter extractor
-  covering 30+ languages, including several graphify doesn't touch at all
-  (ArkTS, Metal, CUDA, Liquid, Delphi, R, Luau, CFML, COBOL, VB.NET, Erlang,
-  Solidity, Terraform, Nix). graphscout has no parser of its own — every
-  language it indexes comes from the third-party `graphifyy` dependency, so
-  this gap is structural: closing it means either `graphifyy` adding those
-  grammars upstream, or graphscout vendoring its own tree-sitter grammars (a
-  project on the scale of codegraph's own extractor, not a task for a small
-  wrapper tool). Not being worked on for 0.7; noted here so the comparison
-  stays honest rather than implying it's temporary.
-- **Cross-language bridging** (Swift↔ObjC, React Native legacy/TurboModule
-  bridges, Expo Modules, Fabric/Paper view managers). codegraph's version is
-  validated against 15 real repos across small/medium/large per bridge type —
-  a multi-month engineering effort with its own name-resolution heuristics per
-  boundary. Deliberately **not attempted** here: a shallow same-named version
-  built in an afternoon and marketed as parity would be a worse outcome than
-  admitting the gap. If this matters for your use case, use codegraph.
+**Where graphscout is narrower by design — two scope boundaries, stated
+plainly rather than sandbagged:**
+- **Raw language count: 16/20 sampled (reproducible via
+  `scripts/lang_coverage.py`) vs. codegraph's 31.** codegraph bundles its own
+  tree-sitter extractor covering 30+ languages, including several graphify
+  doesn't touch at all (ArkTS, Metal, CUDA, Liquid, Delphi, R, Luau, CFML,
+  COBOL, VB.NET, Erlang, Solidity, Terraform, Nix). graphscout has no parser
+  of its own — every language it indexes comes from the third-party
+  `graphifyy` dependency, so closing this means either `graphifyy` adding
+  those grammars upstream, or graphscout vendoring its own tree-sitter
+  grammars (a project on the scale of codegraph's own extractor, out of scope
+  for a small wrapper tool). This is a permanent product-scope line, not a
+  0.7 backlog item.
+- **Cross-language bridging: not attempted, vs. codegraph's ✅ (validated
+  against 15 real repos).** This covers Swift↔ObjC, React Native legacy/
+  TurboModule bridges, Expo Modules, and Fabric/Paper view managers.
+  codegraph's version is a multi-month engineering effort with its own
+  name-resolution heuristics per boundary. graphscout deliberately does not
+  ship a same-named shallow version here: marketing an afternoon's regex
+  matching as bridging parity would be a worse outcome than stating the
+  boundary outright. If this matters for your use case, use codegraph.
 
 Where graphscout is now ahead: **framework route parity** (17 named families,
 closed in 0.6.1) plus **nine query types** (`diff`, `orphans`, `hotspots`,
@@ -549,12 +561,13 @@ telemetry-free tool that also answers "what actually changed", "what's dead",
 copy-paste", and "is it worth reading this whole function" — that's what
 `graphscout` adds.
 
-**On the benchmark gap:** codegraph's number (58% fewer tool calls, 22%
-faster, near-zero file reads, median of 4 headless Claude runs across 7 real
-repos, full methodology published) is real and rigorous. Matching it properly
-means running many headless agent trials against cloned repos — real API
-cost, not a code change — so it's scoped as a follow-up decision rather than
-something spent silently; ask if you want a scaled-down version run.
+**On the benchmark difference:** codegraph's number (58% fewer tool calls,
+22% faster, near-zero file reads, median of 4 headless Claude runs across 7
+real repos, full methodology published) is real and rigorous. graphscout
+reports an offline call/payload proxy instead (below), because matching
+codegraph's methodology requires many live headless-agent trials against
+cloned repos — real, ongoing API spend rather than a one-time code change —
+which is out of scope for this repository to fund on its own.
 
 ## 📈 Star history
 
